@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
 
 describe('component test example', () => {
@@ -9,9 +9,9 @@ describe('component test example', () => {
         return () => h('div', 'Hello Nuxt!')
       },
     })
-    
+
     const component = await mountSuspended(TestComponent)
-    
+
     expect(component.text()).toBe('Hello Nuxt!')
   })
 })
