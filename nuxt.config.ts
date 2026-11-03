@@ -49,8 +49,13 @@ export default defineNuxtConfig({
         provider: 'local',
       },
     ],
-    local: {
-      dirs: ['public/fonts'],
+  },
+
+  vite: {
+    optimizeDeps: {
+      include: [
+        'zod',
+      ],
     },
   },
 })

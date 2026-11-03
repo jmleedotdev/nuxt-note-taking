@@ -7,6 +7,15 @@ export default defineConfig({
     projects: [
       {
         test: {
+          name: 'http',
+          include: ['test/http/*.test.ts'],
+          environment: 'node',
+          testTimeout: 60000,
+          hookTimeout: 120000,
+        },
+      },
+      {
+        test: {
           name: 'unit',
           include: ['test/unit/*.{test,spec}.ts'],
           environment: 'node',
