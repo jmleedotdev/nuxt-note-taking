@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+@import '@nuxt/ui';
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+
+  --color-neutral-950: rgb(14, 18, 27);
+  --color-neutral-900: rgb(25, 27, 37);
+  --color-neutral-800: rgb(35, 37, 48);
+  --color-neutral-700: rgb(43, 48, 59);
+  --color-neutral-600: rgb(82, 88, 102);
+  --color-neutral-500: rgb(113, 119, 132);
+  --color-neutral-400: rgb(153, 160, 174);
+  --color-neutral-300: rgb(202, 207, 216);
+  --color-neutral-200: rgb(224, 228, 234);
+  --color-neutral-100: rgb(243, 245, 248);
+  --color-neutral-50: rgb(245, 247, 250);
+  --color-neutral-0: rgb(255, 255, 255);
+
+  --color-blue-700: rgb(37, 71, 208);
+  --color-blue-500: rgb(51, 92, 255);
+  --color-blue-50: rgb(235, 241, 255);
+
+  --color-green-500: rgb(33, 193, 107);
+  --color-green-100: rgb(209, 251, 233);
+
+  --color-red-500: rgb(251, 55, 72);
+  --color-red-100: rgb(255, 213, 216);
+}

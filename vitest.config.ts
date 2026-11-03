@@ -1,10 +1,19 @@
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vitest/config'
 import { defineVitestProject } from '@nuxt/test-utils/config'
+import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
     projects: [
+      {
+        test: {
+          name: 'http',
+          include: ['test/http/*.test.ts'],
+          environment: 'node',
+          testTimeout: 60000,
+          hookTimeout: 120000,
+        },
+      },
       {
         test: {
           name: 'unit',
