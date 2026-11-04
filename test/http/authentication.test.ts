@@ -254,7 +254,16 @@ describe('authentication HTTP contract', async () => {
       redirect: 'manual',
     })
 
-    expect(denied.headers.get('location')).toBe('/check-email?invalid=1')
+    expect(denied.headers.get('location')).toBe('/check-email?required=1')
+
+    const recovery = await fetch(url(denied.headers.get('location')!), {
+      headers: { cookie },
+    })
+    const html = await recovery.text()
+
+    expect(html).toContain('Your email needs verification before you can access your notes.')
+    expect(html).toContain('Back to login')
+    expect(html).not.toContain('This link is invalid or has expired.')
   })
 
   it('enforces a hard seven-day session lifetime even if a stored expiry is longer', async () => {
@@ -306,6 +315,44 @@ describe('authentication HTTP contract', async () => {
     expect(response.headers.get('location')).toBe('/login')
     expect(response.headers.get('set-cookie')).toMatch(/Max-Age=0/i)
     expect(response.headers.get('cache-control')).toBe('no-store')
+  })
+
+  it('does not claim logout or clear cookies when PostgreSQL cannot revoke the session', async () => {
+    const { email, link } = await account()
+
+    await fetch(url(link), { redirect: 'manual' })
+
+    const cookie = cookies(await post('/api/login', { email, password }))
+
+    await $fetch('/__test/auth-state', {
+      method: 'POST',
+      body: { email, failLogout: true },
+    })
+
+    try {
+      const failed = await post('/api/logout', {}, cookie)
+
+      expect(failed.status).toBe(503)
+      expect(await failed.json()).toEqual({
+        error: { code: 'AUTH_UNAVAILABLE' },
+      })
+      expect(failed.headers.get('set-cookie')).toBeNull()
+      expect((await fetch(url('/api/session'), {
+        headers: { cookie },
+      })).status).toBe(200)
+    } finally {
+      await $fetch('/__test/auth-state', {
+        method: 'POST',
+        body: { email, failLogout: false },
+      })
+    }
+
+    const retried = await post('/api/logout', {}, cookie)
+
+    expect(retried.status).toBe(200)
+    expect((await fetch(url('/api/session'), {
+      headers: { cookie },
+    })).status).toBe(401)
   })
 
   it('logout revokes a copied cookie, clears the browser cookie, and preserves another device', async () => {

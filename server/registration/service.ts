@@ -77,7 +77,20 @@ function createRegistrationService() {
       })
     },
     async logout(headers: Headers) {
-      return auth.api.signOut({ headers, asResponse: true })
+      const response = await auth.api.signOut({ headers, asResponse: true })
+      // Better Auth suppresses deletion errors in signOut. Confirm revocation from
+      // the database with the original cookie before releasing its clearing headers.
+      const remaining = await auth.api.getSession({
+        headers,
+        query: { disableCookieCache: true, disableRefresh: true },
+        asResponse: true,
+      })
+
+      if (!response.ok || !remaining.ok || await remaining.json() !== null) {
+        throw new Error('Session revocation could not be confirmed')
+      }
+
+      return response
     },
     async resend(email: string, headers: Headers) {
       await auth.api.sendVerificationEmail({

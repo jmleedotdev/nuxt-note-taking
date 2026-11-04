@@ -8,5 +8,5 @@ export default defineNuxtRouteMiddleware(async () => {
     return navigateTo('/login', { replace: true })
 
   if (status === 403)
-    return navigateTo('/check-email?invalid=1', { replace: true })
+    return navigateTo('/check-email?required=1', { replace: true })
 })

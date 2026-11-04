@@ -17,7 +17,11 @@ and atomic `registration_limit` table support this slice unchanged.
   `{ error: { code: "EMAIL_NOT_VERIFIED" } }` denies access.
 - `POST /api/logout`: JSON body, HTTP 200 `{ status: "signed-out" }`.
   Better Auth deletes only the session selected by the incoming signed cookie,
-  then expires its cookies. Logout without a valid session is harmless.
+  then expires its cookies. Because the pinned library suppresses deletion errors,
+  the service performs an authoritative post-deletion session check with the original
+  cookie before returning success or forwarding clearing headers. If revocation
+  cannot be confirmed, logout returns sanitized 503 and keeps the cookie for retry.
+  Logout without a valid session is harmless.
 - Login errors: 401 `INVALID_CREDENTIALS` for both unknown email and incorrect
   password, 403 `EMAIL_NOT_VERIFIED` only after successful credential verification,
   422 `VALIDATION` with field messages, 429 `RATE_LIMITED` with numeric
@@ -66,7 +70,9 @@ should map those errors to their application HTTP response, as `/api/session` do
 
 `useAuthentication()` is the frontend request interface. Page middleware checks
 `/api/session` on navigation, including SSR, and redirects anonymous visitors to
-`/login` and unverified sessions to verification recovery. SSR requests use
+`/login` and unverified sessions to `/check-email?required=1`. That screen explains
+that email verification is required, rather than claiming a link was invalid;
+without ephemeral email context it links to login's verification-email action. SSR requests use
 request-scoped fetch rather than a global user/session cache; all outgoing
 Set-Cookie values from session checks are appended to the browser response.
 The server adapter likewise preserves every library Set-Cookie header on login,
@@ -103,7 +109,8 @@ trust one overwriting X-Real-IP only from the configured actual TCP peer.
   logout isolation, copied-cookie rejection, SSR cookie clearing, HTTPS cookie
   attributes, fixed redirects, origin/CSRF checks, and unmounted library routes.
 - The test-only `auth-state` fixture sets database time/state preconditions for
-  expiration/revocation scenarios. Assertions still go through public HTTP;
+  expiration/revocation scenarios and installs a scoped PostgreSQL trigger to
+  exercise actual session-deletion failure during logout. Assertions still go through public HTTP;
   no test clock or administrative handler is mounted in runtime configuration.
 - `pnpm test:browser` exercises signup → recovery → verification → login → SSR
   shell → logout plus invalid-link recovery on desktop, tablet, and mobile.
