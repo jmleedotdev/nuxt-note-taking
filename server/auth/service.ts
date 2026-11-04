@@ -1,13 +1,13 @@
-import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { betterAuth } from 'better-auth/minimal'
 import { createDatabase } from '../db/client'
 import * as schema from '../db/schema/auth'
-import { registrationConfig } from './config'
+import { authConfig } from './config'
 import { createMailSender, verificationMessage } from './mail'
 import { hashPassword, verifyPassword } from './password'
 
-function createRegistrationService() {
-  const config = registrationConfig()
+function createAuthService() {
+  const config = authConfig()
   const { client, db } = createDatabase()
   const sender = createMailSender(config)
   const auth = betterAuth({
@@ -62,6 +62,36 @@ function createRegistrationService() {
     client,
     sender,
     config,
+    async login(email: string, password: string, headers: Headers) {
+      return auth.api.signInEmail({
+        body: { email, password },
+        headers,
+        asResponse: true,
+      })
+    },
+    async session(headers: Headers) {
+      return auth.api.getSession({
+        headers,
+        query: { disableCookieCache: true, disableRefresh: true },
+        asResponse: true,
+      })
+    },
+    async logout(headers: Headers) {
+      const response = await auth.api.signOut({ headers, asResponse: true })
+      // Better Auth suppresses deletion errors in signOut. Confirm revocation from
+      // the database with the original cookie before releasing its clearing headers.
+      const remaining = await auth.api.getSession({
+        headers,
+        query: { disableCookieCache: true, disableRefresh: true },
+        asResponse: true,
+      })
+
+      if (!response.ok || !remaining.ok || await remaining.json() !== null) {
+        throw new Error('Session revocation could not be confirmed')
+      }
+
+      return response
+    },
     async resend(email: string, headers: Headers) {
       await auth.api.sendVerificationEmail({
         body: { email },
@@ -84,8 +114,8 @@ function createRegistrationService() {
   }
 }
 
-let instance: ReturnType<typeof createRegistrationService> | undefined
+let instance: ReturnType<typeof createAuthService> | undefined
 
-export function registrationService() {
-  return instance ??= createRegistrationService()
+export function authService() {
+  return instance ??= createAuthService()
 }

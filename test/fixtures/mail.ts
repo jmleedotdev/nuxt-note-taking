@@ -1,9 +1,9 @@
 import { defineEventHandler, readBody } from 'h3'
-import { MemoryMailSender } from '../../server/registration/mail'
-import { registrationService } from '../../server/registration/service'
+import { MemoryMailSender } from '../../server/auth/mail'
+import { authService } from '../../server/auth/service'
 
 export default defineEventHandler(async (event) => {
-  const sender = registrationService().sender
+  const sender = authService().sender
 
   if (!(sender instanceof MemoryMailSender)) {
     throw new TypeError('Memory sender required')

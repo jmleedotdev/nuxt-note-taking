@@ -1,17 +1,17 @@
 import type { H3Event } from 'h3'
 import type { z } from 'zod'
 import { Buffer } from 'node:buffer'
-import { registrationConfig } from './config'
-import { consumeRegistrationLimit, registrationClientIP } from './limits'
-import { registrationService } from './service'
+import { authConfig } from './config'
+import { authClientIP, consumeAuthLimit } from './limits'
+import { authService } from './service'
 
-function checkRegistrationOrigin(event: H3Event) {
-  return getHeader(event, 'origin') === registrationConfig().APP_URL
+export function checkAuthOrigin(event: H3Event) {
+  return getHeader(event, 'origin') === authConfig().APP_URL
     && getHeader(event, 'content-type')?.split(';')[0] === 'application/json'
     && getHeader(event, 'sec-fetch-site') !== 'cross-site'
 }
 
-async function registrationInput<T>(event: H3Event, schema: z.ZodType<T>) {
+async function authInput<T>(event: H3Event, schema: z.ZodType<T>) {
   // Bound the stream before parsing JSON, including chunked requests.
   const chunks: Buffer[] = []
 
@@ -59,8 +59,8 @@ async function registrationInput<T>(event: H3Event, schema: z.ZodType<T>) {
   return { data: parsed.data }
 }
 
-export async function admitRegistration<T extends { email: string }>(event: H3Event, schema: z.ZodType<T>) {
-  if (!checkRegistrationOrigin(event)) {
+export async function admitAuth<T extends { email: string }>(event: H3Event, schema: z.ZodType<T>, purpose: 'registration' | 'login' = 'registration') {
+  if (!checkAuthOrigin(event)) {
     setResponseStatus(event, 403)
 
     return {
@@ -70,14 +70,14 @@ export async function admitRegistration<T extends { email: string }>(event: H3Ev
     }
   }
 
-  const parsed = await registrationInput(event, schema)
+  const parsed = await authInput(event, schema)
 
   if ('error' in parsed) {
     return { response: parsed }
   }
 
-  const service = registrationService()
-  const retryAfter = await consumeRegistrationLimit(service, registrationClientIP(event, service), parsed.data.email)
+  const service = authService()
+  const retryAfter = await consumeAuthLimit(service, authClientIP(event, service), parsed.data.email, purpose)
 
   if (retryAfter) {
     setResponseStatus(event, 429)

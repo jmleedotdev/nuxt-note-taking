@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hashPassword, verifyPassword } from '../../server/registration/password'
+import { hashPassword, verifyPassword } from '../../server/auth/password'
 
 describe('aSCII password credential semantics', () => {
   it.each([

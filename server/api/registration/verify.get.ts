@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { registrationService } from '../../registration/service'
+import { authService } from '../../auth/service'
 
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
 
   if (token.success) {
     try {
-      await registrationService().verify(token.data, new Headers(getRequestHeaders(event) as HeadersInit))
+      await authService().verify(token.data, new Headers(getRequestHeaders(event) as HeadersInit))
 
       return sendRedirect(event, '/login?verified=1', 303)
     } catch { /* Invalid/expired links have the same recovery path; never reflect the token. */ }

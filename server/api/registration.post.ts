@@ -1,8 +1,8 @@
 import { registrationSchema } from '../../shared/schemas/registration'
-import { admitRegistration } from '../registration/http'
+import { admitAuth } from '../auth/http'
 
 export default defineEventHandler(async (event) => {
-  const admission = await admitRegistration(event, registrationSchema)
+  const admission = await admitAuth(event, registrationSchema)
 
   if ('response' in admission) {
     return admission.response

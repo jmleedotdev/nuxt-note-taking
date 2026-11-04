@@ -1,11 +1,11 @@
 import type { H3Event } from 'h3'
-import type { registrationService } from './service'
+import type { authService } from './service'
 import { createHmac } from 'node:crypto'
 import { isIP } from 'node:net'
 
-type Service = ReturnType<typeof registrationService>
+type Service = ReturnType<typeof authService>
 
-export function registrationClientIP(event: H3Event, service: Service) {
+export function authClientIP(event: H3Event, service: Service) {
   const peer = (event.node.req.socket.remoteAddress ?? 'unknown').replace(/^::ffff:/, '')
 
   // Trust one overwriting proxy only; never trust a client-supplied forwarded chain.
@@ -20,18 +20,33 @@ export function registrationClientIP(event: H3Event, service: Service) {
   return peer
 }
 
-export async function consumeRegistrationLimit(service: Service, ip: string, email?: string) {
+export async function consumeAuthLimit(service: Service, ip: string, email?: string, purpose: 'registration' | 'login' = 'registration') {
   const digest = (value: string) => createHmac('sha256', service.config.APP_AUTH_SECRET).update(value).digest('hex')
   const rules = [
     { key: 'global', max: 500, seconds: 3600 },
     { key: `ip:${digest(ip)}`, max: 20, seconds: 3600 },
     ...(email
       ? [
-          { key: `email:${digest(email)}`, max: 5, seconds: 3600 },
-          { key: `cooldown:${digest(email)}`, max: 1, seconds: 30 },
+          {
+            key: `email:${digest(email)}`,
+            max: 5,
+            seconds: purpose === 'login'
+              ? 900
+              : 3600,
+          },
+          ...(purpose === 'registration'
+            ? [
+                { key: `cooldown:${digest(email)}`, max: 1, seconds: 30 },
+              ]
+            : []),
         ]
       : []),
-  ].sort((a, b) => a.key.localeCompare(b.key))
+  ].map(rule => ({
+    ...rule,
+    key: purpose === 'login'
+      ? `login:${rule.key}`
+      : rule.key,
+  })).sort((a, b) => a.key.localeCompare(b.key))
 
   // Stable lock order avoids deadlocks. ON CONFLICT is atomic across workers/instances.
   // Commit denied attempts too, so blocked requests still consume the IP budget.

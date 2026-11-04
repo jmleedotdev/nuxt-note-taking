@@ -3,7 +3,7 @@ definePageMeta({
   middleware(to) {
     const { email } = useRegistration()
 
-    if (!email.value && !to.query.invalid) {
+    if (!email.value && !to.query.invalid && !to.query.required) {
       return navigateTo('/login', { replace: true })
     }
   },
@@ -69,6 +69,14 @@ async function resend() {
 
     <p v-if="$route.query.invalid" role="alert" class="mt-4 text-sm text-red-600 dark:text-red-400">
       This link is invalid or has expired.
+    </p>
+
+    <p v-else-if="$route.query.required" role="alert" class="mt-4 text-sm">
+      Your email needs verification before you can access your notes.
+    </p>
+
+    <p v-if="!email && ($route.query.invalid || $route.query.required)" class="mt-4 text-sm text-neutral-600 dark:text-neutral-300">
+      Enter your email and password on the login page to request a new verification link.
     </p>
 
     <div v-if="email" class="mt-8 space-y-4">
