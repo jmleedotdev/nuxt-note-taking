@@ -7,7 +7,7 @@ import * as schema from '../db/schema/auth'
 import { authConfig } from './config'
 import { createMailSender, verificationMessage } from './mail'
 import { hashPassword, verifyPassword } from './password'
-import { createPasswordRecovery, credentialLockKey } from './password-recovery'
+import { createPasswordRecovery, credentialLockKey, replaceCredential } from './password-recovery'
 
 function createAuthService() {
   const config = authConfig()
@@ -79,6 +79,50 @@ function createAuthService() {
           headers,
           asResponse: true,
         })
+      })
+    },
+    async changePassword(email: string, currentPassword: string, newPassword: string, headers: Headers) {
+      return credentialTransactions.begin(async (sql) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended(${credentialLockKey(email)}, 0))`
+
+        const response = await auth.api.getSession({
+          headers,
+          query: { disableCookieCache: true, disableRefresh: true },
+          asResponse: true,
+        })
+
+        if (!response.ok)
+          throw new Error('Session unavailable')
+
+        const session = await response.json()
+
+        if (!session || session.user.email !== email)
+          return 'UNAUTHENTICATED' as const
+
+        // Reauthorize after waiting for the credential lock. A preceding change,
+        // reset, logout, or expiry must not leave an admitted request authorized.
+        const rows = await sql`
+          SELECT u.id, u.email_verified, a.password FROM "user" u
+          JOIN session s ON s.user_id = u.id
+          LEFT JOIN account a ON a.user_id = u.id AND a.provider_id = 'credential'
+          WHERE s.id = ${session.session.id} AND u.email = ${email}
+          AND s.expires_at > clock_timestamp()
+          AND s.created_at > clock_timestamp() - interval '7 days'
+        `
+        const credential = rows[0]
+
+        if (!credential)
+          return 'UNAUTHENTICATED' as const
+
+        if (!credential.email_verified)
+          return 'EMAIL_NOT_VERIFIED' as const
+
+        if (!credential.password || !await verifyPassword({ hash: credential.password, password: currentPassword }))
+          return 'INVALID_CURRENT_PASSWORD' as const
+
+        await replaceCredential(sql, credential.id, await hashPassword(newPassword))
+
+        return 'password-changed' as const
       })
     },
     async session(headers: Headers) {

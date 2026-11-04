@@ -16,13 +16,13 @@ function tokenHash(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
 
-// Login, issuance, and redemption use this same database-wide lock namespace.
+// Login, issuance, redemption, and settings changes share this database-wide lock.
 // A token-row lock alone cannot serialize login or issuance before a row exists.
 export function credentialLockKey(email: string) {
   return `credential:${email}`
 }
 
-// Shared atomic transition for reset and a future authenticated password change.
+// Shared atomic transition for reset and authenticated password change.
 // The caller must hold the credential lock and authorize the transition in this transaction.
 export async function replaceCredential(sql: TransactionSql, userId: string, hash: string) {
   const updated = await sql`

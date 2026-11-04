@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { expect, test } from '@nuxt/test-utils/playwright'
 
-test('signup rejects spaces, preserves email, and accepts an ASCII password', async ({ page, goto }) => {
+test('signup rejects spaces, preserves email, and accepts an ASCII password', async ({ page, goto }, testInfo) => {
   test.setTimeout(60000)
+  // Keep the real cooldown check independent of other journeys' shared IP budgets.
+  await page.context().setExtraHTTPHeaders({ 'x-real-ip': `198.19.23.${{ desktop: 1, tablet: 2, mobile: 3 }[testInfo.project.name]}` })
   await goto('/signup', { waitUntil: 'hydration' })
   await expect(page.getByRole('heading', { name: 'Create Your Account' })).toBeVisible()
   await expect(page).toHaveTitle('Sign Up | notes')

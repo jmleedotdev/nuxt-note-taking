@@ -7,9 +7,11 @@ defineEmits<{ logout: [] }>()
 const route = useRoute()
 const appearance = useAppearance()
 const authentication = useAuthentication()
-const section = computed(() => route.query.setting === 'font'
-  ? 'font'
-  : 'color')
+const section = computed(() => route.query.setting === 'password'
+  ? 'password'
+  : route.query.setting === 'font'
+    ? 'font'
+    : 'color')
 const explicitSection = computed(() => !!route.query.setting)
 const state = reactive<Appearance>({ ...appearance.applied.value })
 const message = ref('')
@@ -136,6 +138,11 @@ async function submit() {
         <UIcon name="i-app-chevron-right" class="ml-auto size-3" />
       </UButton>
 
+      <UButton to="/?panel=settings&setting=password" icon="i-app-lock" color="neutral" variant="ghost" block class="justify-start" :class="section === 'password' && 'xl:bg-neutral-100 dark:xl:bg-neutral-800'" :aria-current="section === 'password' ? 'page' : undefined" :disabled="appearance.saving.value">
+        Change Password
+        <UIcon name="i-app-chevron-right" class="ml-auto size-3" />
+      </UButton>
+
       <div class="border-t border-neutral-200 pt-2 dark:border-neutral-800">
         <UButton icon="i-app-logout" color="neutral" variant="ghost" :disabled="appearance.saving.value" @click="$emit('logout')">
           Log out
@@ -149,72 +156,76 @@ async function submit() {
           Settings
         </UButton>
 
-        <h2 class="text-2xl font-bold tracking-tight xl:text-base xl:font-semibold">
-          {{ title }}
-        </h2>
+        <PasswordSettings v-if="section === 'password'" />
 
-        <p class="mt-1 text-sm text-neutral-700 dark:text-neutral-300">
-          Choose your {{ section === 'font' ? 'font' : 'color' }} theme:
-        </p>
+        <template v-else>
+          <h2 class="text-2xl font-bold tracking-tight xl:text-base xl:font-semibold">
+            {{ title }}
+          </h2>
 
-        <p v-if="appearance.status.value === 'loading'" role="status" class="mt-6 text-sm">
-          Loading your account appearance…
-        </p>
-
-        <div v-else-if="appearance.status.value === 'error'" role="alert" class="mt-6 space-y-3 text-sm">
-          <p>We could not load your account appearance. Try again before making changes.</p>
-
-          <UButton color="neutral" variant="outline" @click="retry">
-            Try again
-          </UButton>
-        </div>
-
-        <form v-else class="mt-6 space-y-6" @submit.prevent="submit">
-          <URadioGroup
-            :key="section"
-            v-model="state[section === 'font' ? 'font' : 'theme']"
-            :items="section === 'font' ? fonts : themes"
-            :aria-label="title"
-            variant="card"
-            indicator="end"
-            :disabled="accountChanged || appearance.saving.value || appearance.status.value !== 'ready'"
-            :ui="{
-              fieldset: 'gap-4',
-              item: 'relative min-h-18 items-center rounded-xl border-neutral-200 p-4 has-data-[state=checked]:border-neutral-200 has-data-[state=checked]:bg-neutral-100 has-focus-visible:outline-2 has-focus-visible:outline-blue-500 dark:border-neutral-800 dark:has-data-[state=checked]:border-neutral-800 dark:has-data-[state=checked]:bg-neutral-800',
-              wrapper: 'mr-4 pl-14',
-              label: 'text-sm leading-[1.2] font-medium text-neutral-950 dark:text-neutral-0',
-              description: 'mt-1.5 text-xs leading-[1.2] text-neutral-700 dark:text-neutral-300',
-              container: 'h-4',
-              base: 'size-4 data-[state=checked]:ring-blue-500',
-              indicator: 'bg-blue-500 after:bg-white',
-            }"
-          >
-            <template #label="{ item }">
-              <span aria-hidden="true" class="absolute top-1/2 left-4 flex size-10 -translate-y-1/2 items-center justify-center rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
-                <UIcon :name="item.icon" class="size-6" />
-              </span>
-              {{ item.label }}
-            </template>
-          </URadioGroup>
-
-          <p v-if="validation || error" role="alert" class="text-sm text-red-600 dark:text-red-400">
-            {{ validation || error }}
+          <p class="mt-1 text-sm text-neutral-700 dark:text-neutral-300">
+            Choose your {{ section === 'font' ? 'font' : 'color' }} theme:
           </p>
 
-          <UButton v-if="accountChanged" color="neutral" variant="outline" @click="reloadNuxtApp({ force: true })">
-            Reload account
-          </UButton>
-
-          <p v-if="message" role="status" class="text-sm">
-            {{ message }}
+          <p v-if="appearance.status.value === 'loading'" role="status" class="mt-6 text-sm">
+            Loading your account appearance…
           </p>
 
-          <div class="flex justify-end">
-            <UButton type="submit" :loading="appearance.saving.value" :disabled="accountChanged || appearance.status.value !== 'ready'" class="min-h-10.5 bg-blue-500 px-4 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700">
-              Apply Changes
+          <div v-else-if="appearance.status.value === 'error'" role="alert" class="mt-6 space-y-3 text-sm">
+            <p>We could not load your account appearance. Try again before making changes.</p>
+
+            <UButton color="neutral" variant="outline" @click="retry">
+              Try again
             </UButton>
           </div>
-        </form>
+
+          <form v-else class="mt-6 space-y-6" @submit.prevent="submit">
+            <URadioGroup
+              :key="section"
+              v-model="state[section === 'font' ? 'font' : 'theme']"
+              :items="section === 'font' ? fonts : themes"
+              :aria-label="title"
+              variant="card"
+              indicator="end"
+              :disabled="accountChanged || appearance.saving.value || appearance.status.value !== 'ready'"
+              :ui="{
+                fieldset: 'gap-4',
+                item: 'relative min-h-18 items-center rounded-xl border-neutral-200 p-4 has-data-[state=checked]:border-neutral-200 has-data-[state=checked]:bg-neutral-100 has-focus-visible:outline-2 has-focus-visible:outline-blue-500 dark:border-neutral-800 dark:has-data-[state=checked]:border-neutral-800 dark:has-data-[state=checked]:bg-neutral-800',
+                wrapper: 'mr-4 pl-14',
+                label: 'text-sm leading-[1.2] font-medium text-neutral-950 dark:text-neutral-0',
+                description: 'mt-1.5 text-xs leading-[1.2] text-neutral-700 dark:text-neutral-300',
+                container: 'h-4',
+                base: 'size-4 data-[state=checked]:ring-blue-500',
+                indicator: 'bg-blue-500 after:bg-white',
+              }"
+            >
+              <template #label="{ item }">
+                <span aria-hidden="true" class="absolute top-1/2 left-4 flex size-10 -translate-y-1/2 items-center justify-center rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+                  <UIcon :name="item.icon" class="size-6" />
+                </span>
+                {{ item.label }}
+              </template>
+            </URadioGroup>
+
+            <p v-if="validation || error" role="alert" class="text-sm text-red-600 dark:text-red-400">
+              {{ validation || error }}
+            </p>
+
+            <UButton v-if="accountChanged" color="neutral" variant="outline" @click="reloadNuxtApp({ force: true })">
+              Reload account
+            </UButton>
+
+            <p v-if="message" role="status" class="text-sm">
+              {{ message }}
+            </p>
+
+            <div class="flex justify-end">
+              <UButton type="submit" :loading="appearance.saving.value" :disabled="accountChanged || appearance.status.value !== 'ready'" class="min-h-10.5 bg-blue-500 px-4 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700">
+                Apply Changes
+              </UButton>
+            </div>
+          </form>
+        </template>
       </div>
     </section>
   </div>
