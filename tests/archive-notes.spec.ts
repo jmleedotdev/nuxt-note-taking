@@ -42,12 +42,14 @@ test('archive confirmation protects unsaved work and archived notes can be read 
 
   await expect(modal).toBeVisible()
   await modal.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(modal).toHaveCount(0)
   expect(await (await page.request.get(`/api/notes/${note.id}`)).json()).toEqual(note)
   await page.getByLabel('Title', { exact: true }).fill('Unsaved reference')
   await page.getByRole('button', { name: 'Archive Note', exact: true }).click()
   await modal.getByRole('button', { name: 'Archive Note', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Discard unsaved note?' })).toBeVisible()
   await page.getByRole('button', { name: 'Keep writing', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Unsaved reference')
   expect(await (await page.request.get(`/api/notes/${note.id}`)).json()).toEqual(note)
   await page.getByRole('button', { name: 'Archive Note', exact: true }).click()
@@ -112,7 +114,10 @@ test('archive confirmation protects unsaved work and archived notes can be read 
     data: { id: note.id, remove: true },
   })
   await page.getByRole('button', { name: 'Restore Note', exact: true }).click()
-  await expect(page.getByText('This note was removed.', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Reload note', exact: true }).click()
+
+  const removedToast = page.getByRole('listitem').filter({ hasText: 'This note was removed.' })
+
+  await expect(removedToast).toBeVisible()
+  await removedToast.getByRole('button', { name: 'Reload note', exact: true }).click()
   await expect(page.getByText('No notes have been archived yet.', { exact: false })).toBeVisible()
 })

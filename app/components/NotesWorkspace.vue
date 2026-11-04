@@ -25,11 +25,19 @@ const pending = useState('note-save-pending', () => false)
 const transitionError = ref('')
 const toast = useToast()
 
-onBeforeUnmount(() => toast.remove('archive-conflict'))
+let conflictToastId: string | number | undefined
+
+function dismissConflict() {
+  if (conflictToastId !== undefined)
+    toast.remove(conflictToastId)
+  conflictToastId = undefined
+}
+
+onBeforeUnmount(dismissConflict)
 
 watch(noteId, () => {
   transitionError.value = ''
-  toast.remove('archive-conflict')
+  dismissConflict()
 })
 
 async function transition() {
@@ -50,7 +58,7 @@ async function transition() {
 
     dirty.value = false
     selected.value = updated
-    toast.remove('archive-conflict')
+    dismissConflict()
     toast.add({
       title: updated.isArchived ? 'Note archived.' : 'Note restored to active notes.',
       color: 'success',
@@ -62,8 +70,8 @@ async function transition() {
     const code = (error as { data?: { error?: { code?: string } } }).data?.error?.code
 
     if (['NOTE_VERSION_CONFLICT', 'NOTE_NOT_FOUND'].includes(code ?? '')) {
-      toast.add({
-        id: 'archive-conflict',
+      dismissConflict()
+      conflictToastId = toast.add({
         title: code === 'NOTE_NOT_FOUND'
           ? 'This note was removed.'
           : 'A newer version of this note exists.',
@@ -73,7 +81,7 @@ async function transition() {
         actions: [
           { label: 'Reload note', closeOnClick: false, onClick: reloadTransition },
         ],
-      })
+      }).id
     } else {
       transitionError.value = 'We could not change this note. Please try again.'
     }
@@ -93,7 +101,7 @@ async function reloadTransition() {
 
     dirty.value = false
     selected.value = latest
-    toast.remove('archive-conflict')
+    dismissConflict()
     await refresh()
   } catch (error) {
     const code = (error as { data?: { error?: { code?: string } } }).data?.error?.code
@@ -101,7 +109,7 @@ async function reloadTransition() {
     if (code === 'NOTE_NOT_FOUND') {
       dirty.value = false
       pending.value = false
-      toast.remove('archive-conflict')
+      dismissConflict()
       await navigateTo({ path: '/', query: contextQuery.value })
       await refresh()
     } else {
