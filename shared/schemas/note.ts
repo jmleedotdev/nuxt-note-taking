@@ -22,6 +22,10 @@ export const noteInputSchema = z.object({
   tags: tagsSchema.default([]),
 }).strict()
 
+export const noteVersionSchema = z.object({
+  version: z.number().int().positive(),
+}).strict()
+
 export const noteUpdateSchema = noteInputSchema.extend({
   version: z.number().int().positive(),
 })
