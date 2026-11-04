@@ -10,12 +10,16 @@ useHead({ title })
 const authentication = useAuthentication()
 const pending = ref(false)
 const message = ref('')
-const dirty = useState('new-note-dirty', () => false)
+const dirty = useState('note-dirty', () => false)
 const discardOpen = ref(false)
+const savingNote = useState('note-save-pending', () => false)
 
 let resolveDiscard: ((discard: boolean) => void) | undefined
 
 function confirmDiscard(): Promise<boolean> {
+  if (savingNote.value)
+    return Promise.resolve(false)
+
   if (!dirty.value)
     return Promise.resolve(true)
 

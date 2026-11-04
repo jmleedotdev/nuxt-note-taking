@@ -7,9 +7,9 @@ const origin = 'http://localhost:3000'
 
 let ip = 120
 
-function post(path: string, body: unknown, cookie = '') {
+function post(path: string, body: unknown, cookie = '', method = 'POST') {
   return fetch(url(path), {
-    method: 'POST',
+    method,
     headers: {
       'content-type': 'application/json',
       origin,
@@ -105,6 +105,204 @@ describe('private notes HTTP contract', async () => {
     expect(await (await get('/api/notes', cookie)).json()).toEqual({
       notes: [note],
     })
+  })
+
+  it('explicitly edits title, content and tags using the observed version', async () => {
+    const { cookie } = await account()
+    const original = await (await post('/api/notes', { title: 'Original' }, cookie)).json()
+    const response = await post(`/api/notes/${original.id}`, {
+      title: '  Edited  ',
+      content: 'First\r\n\r\n<b>plain</b>  ',
+      tags: [' Work ', 'work', 'Planning'],
+      version: original.version,
+    }, cookie, 'PUT')
+
+    expect(response.status).toBe(200)
+
+    const edited = await response.json()
+
+    expect(edited).toEqual({
+      ...original,
+      title: 'Edited',
+      content: 'First\n\n<b>plain</b>  ',
+      tags: ['Work', 'Planning'],
+      version: 2,
+      lastEdited: expect.any(String),
+    })
+    expect(Date.parse(edited.lastEdited)).toBeGreaterThan(Date.parse(original.lastEdited))
+    expect(await (await get(`/api/notes/${original.id}`, cookie)).json()).toEqual(edited)
+    expect(await (await get('/api/notes', cookie)).json()).toEqual({
+      notes: [edited],
+    })
+  })
+
+  it('accepts only one competing edit and rejects even a stale no-op without overwriting', async () => {
+    const { cookie } = await account()
+    const original = await (await post('/api/notes', { title: 'Original' }, cookie)).json()
+    const path = `/api/notes/${original.id}`
+    const results = await Promise.all(['First edit', 'Second edit'].map(title => post(path, {
+      title,
+      version: 1,
+    }, cookie, 'PUT')))
+
+    expect(results.map(result => result.status).sort()).toEqual([200, 409])
+
+    const winner = await results.find(result => result.status === 200)!.json()
+    const loser = await results.find(result => result.status === 409)!.json()
+
+    expect(loser).toEqual({
+      error: { code: 'NOTE_VERSION_CONFLICT' },
+    })
+    expect(winner.version).toBe(2)
+    expect(await (await get(path, cookie)).json()).toEqual(winner)
+
+    const staleNoop = await post(path, { title: winner.title, version: 1 }, cookie, 'PUT')
+
+    expect(staleNoop.status).toBe(409)
+    expect(await (await get(path, cookie)).json()).toEqual(winner)
+  })
+
+  it('leaves version, timestamp and list ordering unchanged for normalized no-op saves', async () => {
+    const { cookie } = await account()
+    const original = await (await post('/api/notes', {
+      title: 'First',
+      content: 'One\n\nTwo',
+      tags: ['Work'],
+    }, cookie)).json()
+    const newer = await (await post('/api/notes', { title: 'Newer' }, cookie)).json()
+    const response = await post(`/api/notes/${original.id}`, {
+      title: '  First ',
+      content: 'One\r\n\r\nTwo',
+      tags: [' Work ', 'work'],
+      version: 1,
+    }, cookie, 'PUT')
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(original)
+    expect(await (await get('/api/notes', cookie)).json()).toEqual({
+      notes: [newer, original],
+    })
+
+    const edited = await (await post(`/api/notes/${original.id}`, {
+      title: 'First',
+      content: 'One\n\nTwo',
+      tags: [],
+      version: 1,
+    }, cookie, 'PUT')).json()
+
+    expect(edited).toMatchObject({ tags: [], version: 2 })
+    expect((await (await get('/api/notes', cookie)).json()).notes.map((note: { id: string }) => note.id)).toEqual([original.id, newer.id])
+  })
+
+  it('protects edit ownership, authoritative validation, origin and removed or archived records', async () => {
+    const owner = await account()
+    const other = await account()
+    const original = await (await post('/api/notes', { title: 'Private' }, owner.cookie)).json()
+    const path = `/api/notes/${original.id}`
+    const input = { title: 'Edited', version: 1 }
+
+    expect((await post(path, input, '', 'PUT')).status).toBe(401)
+
+    for (const id of [
+      original.id,
+      randomUUID(),
+      'invalid',
+    ]) {
+      const response = await post(`/api/notes/${id}`, input, other.cookie, 'PUT')
+
+      expect(response.status).toBe(404)
+      expect(await response.json()).toEqual({
+        error: { code: 'NOTE_NOT_FOUND' },
+      })
+    }
+
+    for (const body of [
+      { title: '', version: 1 },
+      {
+        title: 'x'.repeat(201),
+        version: 1,
+      },
+      {
+        ...input,
+        content: 'x'.repeat(100001),
+      },
+      {
+        ...input,
+        tags: [
+          'x'.repeat(51),
+        ],
+      },
+      {
+        ...input,
+        tags: Array.from({ length: 21 }, (_, i) => `tag-${i}`),
+      },
+      { title: 'Missing version' },
+      ...[0, -1, 1.5, '1', null].map(version => ({ ...input, version })),
+      ...[
+        'ownerId',
+        'id',
+        'lastEdited',
+        'isArchived',
+      ].map(key => ({ ...input, [key]: 'forged' })),
+    ]) {
+      const response = await post(path, body, owner.cookie, 'PUT')
+
+      expect(response.status).toBe(422)
+      expect(await response.json()).toMatchObject({
+        error: {
+          code: 'VALIDATION',
+          fields: expect.any(Object),
+        },
+      })
+    }
+
+    expect((await fetch(url(path), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'origin': 'https://evil.example', 'cookie': owner.cookie },
+      body: JSON.stringify(input),
+    })).status).toBe(403)
+
+    for (const [body, status] of [
+      ['{', 400],
+      [
+        JSON.stringify({
+          ...input,
+          content: 'x'.repeat(700000),
+        }),
+        413,
+      ],
+    ] as const) {
+      expect((await fetch(url(path), {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', origin, 'cookie': owner.cookie },
+        body,
+      })).status).toBe(status)
+    }
+
+    expect(await (await get(path, owner.cookie)).json()).toEqual(original)
+
+    await $fetch('/__test/note-state', {
+      method: 'POST',
+      body: { id: original.id, lastEdited: original.lastEdited, isArchived: true },
+    })
+    expect((await post(path, input, owner.cookie, 'PUT')).status).toBe(409)
+    await $fetch('/__test/note-state', {
+      method: 'POST',
+      body: { id: original.id, remove: true },
+    })
+
+    const removed = await post(path, input, owner.cookie, 'PUT')
+
+    expect(removed.status).toBe(404)
+    expect(await removed.json()).toEqual({
+      error: { code: 'NOTE_NOT_FOUND' },
+    })
+
+    await $fetch('/__test/auth-state', {
+      method: 'POST',
+      body: { email: owner.email, unverify: true },
+    })
+    expect((await post(path, input, owner.cookie, 'PUT')).status).toBe(403)
   })
 
   it('rejects anonymous and unverified access and conceals other owners’ notes', async () => {

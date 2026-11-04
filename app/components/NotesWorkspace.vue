@@ -4,7 +4,7 @@ import type { Note } from '#shared/types/note'
 const props = defineProps<{ archived: boolean, confirmDiscard: () => Promise<boolean> }>()
 const route = useRoute()
 const notes = useNotes()
-const dirty = useState('new-note-dirty', () => false)
+const dirty = useState('note-dirty', () => false)
 const creating = computed(() => !props.archived && route.query.draft === '1')
 const noteId = computed(() => !props.archived && typeof route.query.note === 'string'
   ? route.query.note
@@ -54,13 +54,23 @@ async function back() {
   await navigateTo('/')
 }
 
+async function removed() {
+  dirty.value = false
+  await refresh()
+  await navigateTo('/')
+}
+
 async function saved(note: Note) {
   dirty.value = false
-  await navigateTo({
-    path: '/',
-    query: { note: note.id },
-  })
+  selected.value = note
   await refresh()
+
+  if (creating.value) {
+    await navigateTo({
+      path: '/',
+      query: { note: note.id },
+    })
+  }
 }
 
 function date(value: string) {
@@ -117,11 +127,11 @@ function date(value: string) {
       </p>
     </section>
 
-    <section v-if="detail" aria-label="Note" class="min-w-0 flex-1 xl:p-6">
-      <NewNoteEditor v-if="creating" @dirty="dirty = $event" @cancel="back" @back="navigateTo('/')" @saved="saved" />
+    <section v-if="detail" aria-label="Note" class="min-w-0 flex-1 xl:flex xl:flex-col xl:p-6">
+      <NoteEditor v-if="creating" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @cancel="back" @back="navigateTo('/')" @saved="saved" />
 
       <template v-else>
-        <UButton icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="mb-4" @click="back">
+        <UButton v-if="!selected || selected.isArchived" icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="mb-4" @click="navigateTo('/')">
           Go Back
         </UButton>
 
@@ -136,6 +146,8 @@ function date(value: string) {
             Try again
           </UButton>
         </div>
+
+        <NoteEditor v-else-if="selected && !selected.isArchived" :key="`${selected.id}-${selected.version}`" :note="selected" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @back="navigateTo('/')" @saved="saved" @removed="removed" />
 
         <article v-else-if="selected" class="space-y-4">
           <h2 class="text-2xl font-bold tracking-tight wrap-anywhere">

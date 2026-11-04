@@ -7,6 +7,7 @@ export function useNotes() {
   return {
     list: () => request<{ notes: Note[] }>('/api/notes'),
     read: (id: string) => request<Note>(`/api/notes/${encodeURIComponent(id)}`),
+    update: (id: string, input: NoteInput & { version: number }) => $fetch<Note>(`/api/notes/${encodeURIComponent(id)}`, { method: 'PUT', body: input }),
     create: (input: NoteInput) => $fetch<Note>('/api/notes', { method: 'POST', body: input }),
   }
 }

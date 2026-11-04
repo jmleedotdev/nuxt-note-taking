@@ -21,6 +21,10 @@ export default defineConfig<ConfigOptions>({
               route: '/__test/mail',
               handler: fileURLToPath(new URL('./test/fixtures/mail.ts', import.meta.url)),
             },
+            {
+              route: '/__test/note-state',
+              handler: fileURLToPath(new URL('./test/fixtures/note-state.ts', import.meta.url)),
+            },
           ],
         },
       },

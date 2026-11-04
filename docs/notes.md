@@ -1,7 +1,8 @@
-# Creating and reopening private notes
+# Creating, editing and reopening private notes
 
-This slice implements create/list/read only. Editing saved notes, archive mutations,
-search, and tag navigation remain later slices; reopening a saved note is read-only.
+This slice implements create/list/read/edit with explicit Save and Cancel. Archive
+mutations, search, and tag navigation remain later slices. Archived notes remain
+read-only until restored.
 
 ## Application HTTP contract
 
@@ -16,11 +17,23 @@ EMAIL_NOT_VERIFIED`. Database/operation failures return `503 NOTES_UNAVAILABLE`.
   ordered by `lastEdited DESC, id DESC`.
 - `GET /api/notes/:id`: a note directly; missing, malformed, and other-owner IDs
   all return the same `404 NOTE_NOT_FOUND` response. An owner can read archived notes.
+- `PUT /api/notes/:id`: JSON `{ title, content?, tags?, version }`; replaces editable
+  fields using the last observed positive integer version, with the same validation,
+  origin and body-size protections as create. Returns the saved note directly.
+  Stale saves return `409 NOTE_VERSION_CONFLICT`; archived notes return `409
+  NOTE_NOT_EDITABLE`. Missing, removed, malformed and other-owner IDs all return
+  `404 NOTE_NOT_FOUND`, without distinguishing another owner's record.
 
 A note contains exactly `id`, `title`, `content`, `tags`, `lastEdited` (UTC ISO 8601),
 `isArchived`, and `version`. Identity/ownership are immutable, assigned by the
 server, and protected by a database trigger. First save sets version 1, active
-archive state, and the database timestamp. No mutation of existing notes is exposed.
+archive state, and the database timestamp. Existing schema/version constraints are
+reused; no migration is needed for editing. One owner-scoped conditional PostgreSQL
+UPDATE checks the expected version and writes atomically, including after waiting
+for competing updates. Actual title/content/tag changes increment the version and
+set a server timestamp. CASE expressions preserve version and timestamp for a
+normalized no-op; a stale no-op is still rejected. List ordering remains
+`lastEdited DESC, id DESC`.
 
 Invalid input returns `422 { error: { code: 'VALIDATION', fields } }`. Unknown
 properties are rejected, not spread into database writes. Invalid JSON is 400;
@@ -38,11 +51,23 @@ authoritative for application input.
 ## Browser behavior
 
 `/?draft=1` opens an unsaved editor; `/?note=<id>` selects a persisted note and
-allows refresh/reopen. No draft contents are placed in storage or URLs. Cancel
-abandons a draft without an HTTP write. Failed creates retain input for retry.
+allows refresh/reopen and opens active notes in the shared plain-text editor.
+No draft contents are placed in storage or URLs. Cancel abandons a new draft or
+restores the existing saved title/content/tags without an HTTP write. Failed saves
+retain input for retry.
 In-app navigation away from changed input asks for confirmation through Nuxt UI;
 page exits use the native browser warning where supported. Saved content renders
-as escaped text with preserved whitespace, never as HTML or Markdown.
+as escaped text with preserved whitespace, never as HTML or Markdown. The shared
+`note-dirty` guard covers route changes, note selection, back/create and logout;
+`note-save-pending` blocks navigation during an in-flight request. Future destructive
+operations should use the same `confirmDiscard` callback before discarding work.
+
+A conflict or removed-note response shows a persistent Nuxt UI toast with reload
+guidance, without replacing the draft or introducing a merge/compare screen. A
+Reload note action asks before discarding changed text and fetches fresh server
+state. A failed reload retains the draft; a confirmed reload of a removed note
+refreshes the list and returns there. Confirmed browser reloads, termination and
+crashes do not recover drafts.
 
 The existing supplied assets, Nuxt UI controls, local fonts, desktop columns,
 small-screen bottom navigation, and floating create action are retained.
@@ -50,13 +75,20 @@ Figma file `GDJWyTOiuLIfNUQBSueHnL` was retrieved and its desktop create
 `2171:18206`, tablet create `2231:7676`, mobile create `2231:7779`, mobile dark
 create `2254:11582`, tablet read `2228:8408`, and desktop empty `2173:19181`
 layout data inspected. Later node-specific API requests were rate-limited; no
-pixel-exact screenshot comparison is claimed.
+pixel-exact screenshot comparison is claimed. For editing, desktop `2158:9117`,
+tablet `2228:8408`, mobile `2231:7511`, and mobile dark `2238:18713` design context
+and screenshots were inspected. The existing local tag/clock/back icons, fonts
+and Nuxt UI controls are reused. Archive/delete actions and other unfinished
+navigation remain outside this issue's implementation.
 
 ## Validation
 
 `pnpm test:http test/http/notes.test.ts` exercises real HTTP/PostgreSQL behavior
-using migrated disposable databases. Test-only clock/archive setup is not mounted
-in production. `pnpm test:browser tests/notes*.spec.ts` covers create, cancel,
+using migrated disposable databases, including competing edits, stale no-ops,
+unchanged timestamps/ordering, validation, ownership and removed records. Test-only
+clock/archive/removal setup is not mounted in production.
+`pnpm test:browser tests/edit-notes.spec.ts tests/notes*.spec.ts` covers editing,
+competing tabs, toast/reload and removed-note recovery as well as create, cancel,
 validation, retry, refresh, safe paragraph rendering, tags, failed loads and
 unsaved-navigation confirmation at desktop/tablet/mobile sizes. Routine tests
 replace external mail delivery only and send no real email.
