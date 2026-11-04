@@ -111,7 +111,9 @@ test('explicit Save and Cancel retain drafts on failures and guard navigation', 
     ...Object.values(localStorage),
     ...Object.values(sessionStorage),
   ].some(value => value.includes('Keep this draft')))).toBe(false)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.screenshot({
+    animations: 'disabled',
     path: testInfo.outputPath('edit-note.png'),
     fullPage: true,
   })
@@ -145,6 +147,7 @@ test('competing tabs keep rejected text and reload the latest or removed note wi
   await expect(page.getByLabel('Note content', { exact: true })).toHaveValue('Copy this text before reloading')
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.screenshot({
+    animations: 'disabled',
     path: testInfo.outputPath('edit-conflict-dark.png'),
     fullPage: true,
   })
@@ -175,4 +178,32 @@ test('competing tabs keep rejected text and reload the latest or removed note wi
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByText('You don’t have any notes yet.', { exact: false })).toBeVisible()
   await otherTab.close()
+})
+
+test('a successful new-note save opens the saved editor before a slow list refresh finishes', async ({ page, goto }, testInfo) => {
+  await goto('/login', { waitUntil: 'hydration' })
+  await signInAndCreate(page, testInfo.project.name)
+  await goto('/?draft=1', { waitUntil: 'hydration' })
+  await page.getByLabel('Title', { exact: true }).fill('Saved despite a slow list')
+
+  let releaseList!: () => void
+
+  const listReady = new Promise<void>((resolve) => {
+    releaseList = resolve
+  })
+
+  await page.route('**/api/notes', async (route) => {
+    if (route.request().method() === 'GET')
+      await listReady
+    await route.continue()
+  })
+
+  try {
+    await page.getByRole('button', { name: 'Save Note', exact: true }).click()
+    await expect(page).toHaveURL(/note=/)
+    await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Saved despite a slow list')
+  } finally {
+    releaseList()
+    await page.unrouteAll({ behavior: 'wait' })
+  }
 })

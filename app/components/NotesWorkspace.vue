@@ -63,7 +63,6 @@ async function removed() {
 async function saved(note: Note) {
   dirty.value = false
   selected.value = note
-  await refresh()
 
   if (creating.value) {
     await navigateTo({
@@ -71,6 +70,8 @@ async function saved(note: Note) {
       query: { note: note.id },
     })
   }
+
+  await refresh()
 }
 
 function date(value: string) {

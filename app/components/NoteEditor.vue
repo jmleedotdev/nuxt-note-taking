@@ -12,8 +12,12 @@ const emit = defineEmits<{
   dirty: [value: boolean]
   removed: []
 }>()
-const initial = () => ({ title: props.note?.title ?? '', tags: props.note?.tags.join(', ') ?? '', content: props.note?.content ?? '' })
-const state = reactive(initial())
+
+function formState(note?: Note) {
+  return { title: note?.title ?? '', tags: note?.tags.join(', ') ?? '', content: note?.content ?? '' }
+}
+
+const state = reactive(formState(props.note))
 const pending = useState('note-save-pending', () => false)
 const message = ref('')
 const form = useTemplateRef('form')
@@ -23,10 +27,10 @@ const recovery = ref(false)
 
 onBeforeUnmount(() => toast.remove('note-conflict'))
 
-watch(state, () => emit('dirty', JSON.stringify(state) !== JSON.stringify(initial())), { flush: 'sync' })
+watch(state, () => emit('dirty', JSON.stringify(state) !== JSON.stringify(formState(props.note))), { flush: 'sync' })
 
 function cancel() {
-  Object.assign(state, initial())
+  Object.assign(state, formState(props.note))
   form.value?.clear()
   message.value = ''
   emit('dirty', false)
@@ -67,11 +71,7 @@ async function reload() {
   try {
     const note = await notes.read(props.note.id)
 
-    Object.assign(state, {
-      title: note.title,
-      tags: note.tags.join(', '),
-      content: note.content,
-    })
+    Object.assign(state, formState(note))
     recovery.value = false
     pending.value = false
     emit('dirty', false)
@@ -100,13 +100,10 @@ async function save(event: FormSubmitEvent<NoteInput>) {
       ? await notes.update(props.note.id, { ...event.data, version: props.note.version })
       : await notes.create(event.data)
 
-    Object.assign(state, {
-      title: note.title,
-      tags: note.tags.join(', '),
-      content: note.content,
-    })
+    Object.assign(state, formState(note))
     recovery.value = false
     toast.remove('note-conflict')
+    pending.value = false
 
     emit('dirty', false)
     emit('saved', note)
