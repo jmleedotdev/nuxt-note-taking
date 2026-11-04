@@ -55,10 +55,18 @@ async function submit(event: FormSubmitEvent<z.output<typeof loginSchema>>) {
       Email verified. You can now log in.
     </p>
 
+    <p v-if="$route.query.reset === '1'" role="status" class="mt-4 text-center text-sm">
+      Password reset. Please log in with your new password.
+    </p>
+
     <UForm :schema="loginSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
       <UFormField name="email" label="Email Address">
         <UInput v-model="state.email" type="email" autocomplete="email" placeholder="email@example.com" class="w-full" size="xl" :disabled="pending" />
       </UFormField>
+
+      <NuxtLink to="/forgot-password" class="block text-right text-sm text-neutral-600 underline dark:text-neutral-300">
+        Forgot password?
+      </NuxtLink>
 
       <UFormField name="password" label="Password">
         <UInput v-model="state.password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" class="w-full" size="xl" :disabled="pending">

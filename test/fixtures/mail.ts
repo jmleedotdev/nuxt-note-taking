@@ -10,7 +10,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (event.method === 'POST') {
-    sender.fail = (await readBody(event)).fail === true
+    const body = await readBody(event)
+
+    sender.fail = body.fail === true
+    sender.delay = body.delay ?? 0
   }
 
   return sender.messages

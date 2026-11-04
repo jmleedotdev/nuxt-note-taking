@@ -11,7 +11,7 @@ export function checkAuthOrigin(event: H3Event) {
     && getHeader(event, 'sec-fetch-site') !== 'cross-site'
 }
 
-async function authInput<T>(event: H3Event, schema: z.ZodType<T>) {
+export async function authInput<T>(event: H3Event, schema: z.ZodType<T>) {
   const body = await readApplicationJSON(event, 4096)
 
   if ('error' in body)
@@ -33,7 +33,7 @@ async function authInput<T>(event: H3Event, schema: z.ZodType<T>) {
   return { data: parsed.data }
 }
 
-export async function admitAuth<T extends { email: string }>(event: H3Event, schema: z.ZodType<T>, purpose: 'registration' | 'login' = 'registration') {
+export async function admitAuth<T extends { email: string }>(event: H3Event, schema: z.ZodType<T>, purpose: 'registration' | 'login' | 'forgot' = 'registration') {
   if (!checkAuthOrigin(event)) {
     setResponseStatus(event, 403)
 

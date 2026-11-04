@@ -37,6 +37,10 @@ and atomic `registration_limit` table support this slice unchanged.
 
 ## Verification and recovery
 
+Forgotten-password recovery is implemented in [password recovery](password-recovery.md),
+including latest-only reset authorization, all-session revocation, and login/reset
+serialization. The flows below concern email-verification recovery.
+
 One-hour verification links still redeem at `/api/registration/verify`. Success
 always redirects to `/login?verified=1`, never creates a session, and ignores
 caller-supplied redirect URLs. Redeeming a valid link for an already verified

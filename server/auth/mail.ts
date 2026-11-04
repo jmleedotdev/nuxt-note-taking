@@ -7,8 +7,14 @@ export interface MailSender { send: (message: MailMessage) => Promise<void> }
 export class MemoryMailSender implements MailSender {
   readonly messages: MailMessage[] = []
   fail = false
+  delay = 0
   async send(message: MailMessage) {
-    if (this.fail) {
+    const fail = this.fail
+
+    if (this.delay)
+      await new Promise(resolve => setTimeout(resolve, this.delay))
+
+    if (fail) {
       throw new Error('Test mail unavailable')
     }
 
@@ -56,6 +62,18 @@ export function createMailSender(config: ReturnType<typeof authConfig>): MailSen
         throw new Error('Local mail capture failed')
       }
     },
+  }
+}
+
+export function resetMessage(to: string, link: string): MailMessage {
+  // The application generates this URL from its configured origin and a hex token.
+  const escapedLink = link.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
+
+  return {
+    to,
+    subject: 'Reset your password for Note',
+    text: `Reset your Note password. This link expires in thirty minutes and works once. Only the newest link works.\n\n${link}\n\nIf you did not request this, ignore this message.`,
+    html: `<p>Reset your Note password. This link expires in thirty minutes and works once. Only the newest link works.</p><p><a data-mt-no-track href="${escapedLink}">Reset password</a></p><p>If you did not request this, ignore this message.</p>`,
   }
 }
 
