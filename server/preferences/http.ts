@@ -6,14 +6,6 @@ import { requireVerifiedSession } from '../auth/session'
 import { readApplicationJSON } from '../utils/readApplicationJSON'
 
 export async function readAppearanceInput(event: H3Event) {
-  if (!checkAuthOrigin(event)) {
-    setResponseStatus(event, 403)
-
-    return {
-      error: { code: 'FORBIDDEN_ORIGIN' },
-    } as const
-  }
-
   const body = await readApplicationJSON(event, 4096)
 
   if ('error' in body)
@@ -40,6 +32,25 @@ export async function preferencesHTTP(event: H3Event, operation: (ownerId: strin
 
   try {
     const session = await requireVerifiedSession(event)
+
+    if (event.method === 'PUT' && !checkAuthOrigin(event)) {
+      setResponseStatus(event, 403)
+
+      return {
+        error: { code: 'FORBIDDEN_ORIGIN' },
+      }
+    }
+
+    const expectedAccount = getHeader(event, 'x-expected-account-id')
+
+    // This is a precondition, never an owner selector: the session still owns the operation.
+    if ((event.method === 'PUT' || expectedAccount !== undefined) && expectedAccount !== session.user.id) {
+      setResponseStatus(event, 409)
+
+      return {
+        error: { code: 'ACCOUNT_CHANGED' },
+      }
+    }
 
     return await operation(session.user.id)
   } catch (error) {

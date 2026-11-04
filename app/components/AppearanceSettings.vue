@@ -15,6 +15,7 @@ const state = reactive<Appearance>({ ...appearance.applied.value })
 const message = ref('')
 const error = ref('')
 const validation = ref('')
+const accountChanged = ref(false)
 const title = computed(() => section.value === 'font'
   ? 'Font Theme'
   : 'Color Theme')
@@ -64,13 +65,28 @@ watch([appearance.applied, section], () => {
   message.value = ''
   error.value = ''
   validation.value = ''
+  accountChanged.value = false
 })
 
 async function retry() {
-  const ownerId = authentication.session.value?.user.id
+  try {
+    const status = await authentication.refresh()
 
-  if (ownerId)
-    await appearance.load(ownerId, true)
+    if (status === 401 || status === 403) {
+      await navigateTo(status === 401
+        ? '/login'
+        : '/check-email?required=1')
+
+      return
+    }
+
+    const ownerId = authentication.session.value?.user.id
+
+    if (ownerId)
+      await appearance.load(ownerId, true)
+  } catch {
+    // Keep the visible retry state if the session service is also unavailable.
+  }
 }
 
 async function submit() {
@@ -92,6 +108,13 @@ async function submit() {
     message.value = 'Appearance saved to your account.'
   } catch (cause) {
     const failure = cause as { data?: { error?: { code?: string } } }
+
+    if (failure.data?.error?.code === 'ACCOUNT_CHANGED') {
+      accountChanged.value = true
+      error.value = 'Your signed-in account changed in another tab. Reload the account before making changes.'
+
+      return
+    }
 
     error.value = failure.data?.error?.code === 'VALIDATION'
       ? 'These options could not be saved. Choose an available option and try again.'
@@ -154,7 +177,7 @@ async function submit() {
             :aria-label="title"
             variant="card"
             indicator="end"
-            :disabled="appearance.saving.value || appearance.status.value !== 'ready'"
+            :disabled="accountChanged || appearance.saving.value || appearance.status.value !== 'ready'"
             :ui="{
               fieldset: 'gap-4',
               item: 'relative min-h-18 items-center rounded-xl border-neutral-200 p-4 has-data-[state=checked]:border-neutral-200 has-data-[state=checked]:bg-neutral-100 has-focus-visible:outline-2 has-focus-visible:outline-blue-500 dark:border-neutral-800 dark:has-data-[state=checked]:border-neutral-800 dark:has-data-[state=checked]:bg-neutral-800',
@@ -178,12 +201,16 @@ async function submit() {
             {{ validation || error }}
           </p>
 
+          <UButton v-if="accountChanged" color="neutral" variant="outline" @click="reloadNuxtApp({ force: true })">
+            Reload account
+          </UButton>
+
           <p v-if="message" role="status" class="text-sm">
             {{ message }}
           </p>
 
           <div class="flex justify-end">
-            <UButton type="submit" :loading="appearance.saving.value" :disabled="appearance.status.value !== 'ready'" class="min-h-10.5 bg-blue-500 px-4 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700">
+            <UButton type="submit" :loading="appearance.saving.value" :disabled="accountChanged || appearance.status.value !== 'ready'" class="min-h-10.5 bg-blue-500 px-4 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700">
               Apply Changes
             </UButton>
           </div>

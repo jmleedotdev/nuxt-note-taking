@@ -30,7 +30,10 @@ previously used another account. While a new account cannot be loaded, use safe
 defaults and show a failure, not another user's settings as a successful load.
 Logout retains the browser's last successfully loaded/saved appearance for public
 pages. In-flight results from a left/replaced account cannot overwrite a later
-account's state. Reloading fetches account values again, including updates saved
+account's state. Saves also bind to the form's expected account: a different tab
+switching the shared session cannot redirect an old form into the new account.
+A mismatch keeps the choices visible, blocks further saves, and offers Reload
+account. Reloading fetches account values again, including updates saved
 on another device; live push synchronization is not provided.
 
 ## HTTP contract
@@ -42,7 +45,11 @@ Both endpoints require an authenticated, email-verified session and return
   row receives `{ "theme": "system", "font": "inter" }`.
 - `PUT /api/preferences` replaces the account's preferences and returns saved
   `{ theme, font }`. It requires same-origin JSON, following the existing
-  application mutation policy.
+  application mutation policy. Writes require an `X-Expected-Account-ID` header
+  matching the verified session's user ID (available from `/api/session`). This
+  header is a precondition, not an owner selector. A missing/mismatched value
+  returns `409 ACCOUNT_CHANGED` without writing. Reads may send the same header
+  to reject an account switch between session lookup and preference loading.
 
 Theme values: `light`, `dark`, `system`.
 Font values: `inter`, `noto-serif`, `source-code-pro`.
@@ -51,7 +58,8 @@ validation, enforced authoritatively on the server.
 
 Errors use the application `{ error: { code, fields? } }` envelope:
 `401 UNAUTHENTICATED`, `403 EMAIL_NOT_VERIFIED`, `403 FORBIDDEN_ORIGIN`,
-`422 VALIDATION`, or `503 PREFERENCES_UNAVAILABLE`. Malformed/oversized requests
+`409 ACCOUNT_CHANGED`, `422 VALIDATION`, or `503 PREFERENCES_UNAVAILABLE`.
+Malformed/oversized requests
 use the existing JSON reader's errors. No database internals are returned.
 
 The PostgreSQL migration adds one row per user, with a cascading owner foreign
@@ -81,4 +89,5 @@ Real HTTP/PostgreSQL tests exercise defaults, independent sessions, ownership,
 strict validation, origin policy and authenticated/verified guards. Playwright
 covers application-wide local fonts, System changes, explicit persistence,
 separate device login, public-page memory, account switching, keyboard controls,
-loading/validation/save failures and mobile/tablet/desktop settings layouts.
+loading/validation/save failures, delayed responses after logout, shared-cookie
+two-tab account switching, and mobile/tablet/desktop settings layouts.

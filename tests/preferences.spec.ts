@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { expect, test } from '@nuxt/test-utils/playwright'
 
 async function register(page: import('@playwright/test').Page, ip: string) {
+  await page.setExtraHTTPHeaders({ 'x-real-ip': ip })
+
   const email = `appearance-${randomUUID()}@example.test`
   const headers = { 'origin': new URL(page.url()).origin, 'x-real-ip': ip }
 
@@ -66,6 +68,8 @@ test('explicit appearance saves persist across reloads and a different device se
 
   const device = await browser.newContext()
   const second = await device.newPage()
+
+  await second.setExtraHTTPHeaders({ 'x-real-ip': `198.18.16.${{ desktop: 1, tablet: 2, mobile: 3 }[testInfo.project.name]}` })
 
   try {
     await second.goto(new URL('/login', page.url()).href)
@@ -291,5 +295,37 @@ test('a delayed save response from a logged-out account cannot replace the next 
   } finally {
     release()
     await page.unrouteAll({ behavior: 'wait' })
+  }
+})
+
+test('a stale tab cannot save into the account selected in another tab', async ({ page, goto }, testInfo) => {
+  await goto('/login', { waitUntil: 'hydration' })
+
+  const ip = { desktop: 91, tablet: 92, mobile: 93 }[testInfo.project.name]!
+
+  await register(page, `198.18.15.${ip}`)
+  await settings(page, 'Font Theme')
+  await page.getByRole('radio', { name: /Source Code Pro/ }).click()
+
+  const other = await page.context().newPage()
+
+  try {
+    await other.goto(new URL('/', page.url()).href)
+    await other.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
+    await expect(other).toHaveURL(/\/login$/)
+    await register(other, `198.18.15.${ip + 10}`)
+    await page.getByRole('button', { name: 'Apply Changes' }).click()
+    await expect(page.getByRole('alert')).toContainText('Your signed-in account changed')
+    await expect(page.getByText('Appearance saved to your account.', { exact: true })).toHaveCount(0)
+    expect(await (await other.request.get('/api/preferences')).json()).toEqual({ theme: 'system', font: 'inter' })
+
+    const reloaded = page.waitForEvent('load')
+
+    await page.getByRole('button', { name: 'Reload account', exact: true }).click()
+    await reloaded
+    await expect(page.getByRole('radio', { name: /Inter/ })).toBeChecked()
+    await expect(page.locator('body')).toHaveCSS('font-family', /Inter/)
+  } finally {
+    await other.close()
   }
 })

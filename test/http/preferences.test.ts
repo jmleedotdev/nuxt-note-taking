@@ -7,7 +7,7 @@ const origin = 'http://localhost:3000'
 
 let ip = 120
 
-function requestJSON(path: string, body: unknown, cookie = '', method = 'POST') {
+function requestJSON(path: string, body: unknown, cookie = '', method = 'POST', expectedAccount = '') {
   const address = ip++
 
   return fetch(url(path), {
@@ -16,6 +16,7 @@ function requestJSON(path: string, body: unknown, cookie = '', method = 'POST') 
       'content-type': 'application/json',
       origin,
       cookie,
+      'x-expected-account-id': expectedAccount,
       'x-real-ip': `198.19.${Math.floor(address / 256)}.${address % 256}`,
     },
     body: JSON.stringify(body),
@@ -37,10 +38,10 @@ async function account() {
 
   expect(response.status).toBe(200)
 
-  return {
-    email,
-    cookie: response.headers.getSetCookie().map(value => value.split(';')[0]).join('; '),
-  }
+  const cookie = response.headers.getSetCookie().map(value => value.split(';')[0]).join('; ')
+  const session = await (await get('/api/session', cookie)).json()
+
+  return { email, cookie, id: session.user.id as string }
 }
 
 function get(path: string, cookie: string) {
@@ -70,8 +71,42 @@ describe('account appearance HTTP contract', async () => {
     },
   })
 
+  it('rejects an expected account that differs from the cookie session without reading or updating its preferences', async () => {
+    const first = await account()
+    const second = await account()
+    const firstSession = await (await get('/api/session', first.cookie)).json()
+    const headers = {
+      'cookie': second.cookie,
+      'origin': origin,
+      'content-type': 'application/json',
+      'x-expected-account-id': firstSession.user.id,
+    }
+
+    for (const method of ['GET', 'PUT']) {
+      const response = await fetch(url('/api/preferences'), {
+        method,
+        headers,
+        ...(method === 'PUT'
+          ? {
+              body: JSON.stringify({ theme: 'dark', font: 'source-code-pro' }),
+            }
+          : {}),
+      })
+
+      expect(response.status).toBe(409)
+      expect(await response.json()).toEqual({
+        error: { code: 'ACCOUNT_CHANGED' },
+      })
+    }
+
+    const missing = await requestJSON('/api/preferences', { theme: 'dark', font: 'inter' }, second.cookie, 'PUT')
+
+    expect(missing.status).toBe(409)
+    expect(await (await get('/api/preferences', second.cookie)).json()).toEqual({ theme: 'system', font: 'inter' })
+  })
+
   it('guards reads and writes and rejects invalid or owner-supplied fields without changing saved preferences', async () => {
-    const { cookie, email } = await account()
+    const { cookie, email, id } = await account()
     const input = { theme: 'light', font: 'source-code-pro' }
 
     expect((await get('/api/preferences', '')).status).toBe(401)
@@ -84,7 +119,7 @@ describe('account appearance HTTP contract', async () => {
       { ...input, ownerId: 'another-user' },
       { ...input, theme: null },
     ]) {
-      const response = await requestJSON('/api/preferences', invalid, cookie, 'PUT')
+      const response = await requestJSON('/api/preferences', invalid, cookie, 'PUT', id)
 
       expect(response.status).toBe(422)
       expect((await response.json()).error.code).toBe('VALIDATION')
@@ -107,7 +142,7 @@ describe('account appearance HTTP contract', async () => {
       body: { email, unverify: true },
     })
     expect((await get('/api/preferences', cookie)).status).toBe(403)
-    expect((await requestJSON('/api/preferences', input, cookie, 'PUT')).status).toBe(403)
+    expect((await requestJSON('/api/preferences', input, cookie, 'PUT', id)).status).toBe(403)
   })
 
   it('returns System and Inter defaults and persists owner-scoped appearance across sessions', async () => {
@@ -119,7 +154,7 @@ describe('account appearance HTTP contract', async () => {
     expect(defaults.headers.get('cache-control')).toBe('no-store')
     expect(await defaults.json()).toEqual({ theme: 'system', font: 'inter' })
 
-    const saved = await requestJSON('/api/preferences', { theme: 'dark', font: 'noto-serif' }, first.cookie, 'PUT')
+    const saved = await requestJSON('/api/preferences', { theme: 'dark', font: 'noto-serif' }, first.cookie, 'PUT', first.id)
 
     expect(saved.status).toBe(200)
     expect(await saved.json()).toEqual({ theme: 'dark', font: 'noto-serif' })
@@ -132,7 +167,7 @@ describe('account appearance HTTP contract', async () => {
     const second = await account()
 
     expect(await (await getPreferences(second.cookie)).json()).toEqual({ theme: 'system', font: 'inter' })
-    expect((await requestJSON('/api/preferences', { theme: 'light', font: 'source-code-pro' }, second.cookie, 'PUT')).status).toBe(200)
+    expect((await requestJSON('/api/preferences', { theme: 'light', font: 'source-code-pro' }, second.cookie, 'PUT', second.id)).status).toBe(200)
     expect(await (await getPreferences(first.cookie)).json()).toEqual({ theme: 'dark', font: 'noto-serif' })
   })
 })

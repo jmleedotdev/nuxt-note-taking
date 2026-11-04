@@ -36,7 +36,9 @@ export function useAppearance() {
     status.value = 'loading'
 
     try {
-      const value = appearanceSchema.parse(await request('/api/preferences'))
+      const value = appearanceSchema.parse(await request('/api/preferences', {
+        headers: { 'x-expected-account-id': ownerId },
+      }))
 
       if (revision.value !== current)
         return
@@ -72,7 +74,11 @@ export function useAppearance() {
     saving.value = true
 
     try {
-      const saved = appearanceSchema.parse(await $fetch('/api/preferences', { method: 'PUT', body: value }))
+      const saved = appearanceSchema.parse(await $fetch('/api/preferences', {
+        method: 'PUT',
+        body: value,
+        headers: { 'x-expected-account-id': owner.value },
+      }))
 
       // Ignore responses belonging to a session that has since been left/replaced.
       if (revision.value !== current)
