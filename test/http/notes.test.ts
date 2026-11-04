@@ -74,6 +74,100 @@ describe('private notes HTTP contract', async () => {
     },
   })
 
+  it('searches saved titles, content and tags literally within the owner and archive scope', async () => {
+    const { cookie } = await account()
+    const saved = []
+
+    for (const input of [
+      {
+        title: 'Needle title',
+        tags: ['Work'],
+      },
+      {
+        title: 'Body',
+        content: 'A NEEDLE in text',
+        tags: ['work'],
+      },
+      {
+        title: 'Tagged',
+        tags: ['Needle'],
+      },
+      {
+        title: 'Literal %_\\ marker',
+        tags: ['Archived only'],
+      },
+    ])
+      saved.push(await (await post('/api/notes', input, cookie)).json())
+
+    for (const note of saved.slice(0, 3)) {
+      await $fetch('/__test/note-state', {
+        method: 'POST',
+        body: { id: note.id, lastEdited: '2026-01-01T00:00:00Z', isArchived: false },
+      })
+    }
+
+    const ids = async (query: string, session = cookie) => (await (await get(`/api/notes?${query}`, session)).json()).notes.map((note: { id: string }) => note.id)
+    const expected = saved.slice(0, 3).map(note => note.id).sort().reverse()
+
+    expect(await ids('q=nEeDlE')).toEqual(expected)
+    expect(await ids('q=')).toHaveLength(4)
+    expect(await ids(`q=${encodeURIComponent('%_\\')}`)).toEqual([saved[3].id])
+    expect(await ids('q=absent')).toEqual([])
+    expect(await ids('tag=WORK')).toEqual(saved.slice(0, 2).map(note => note.id).sort().reverse())
+    expect(await ids('tag=wor')).toEqual([])
+    expect(await ids('tag=Work&q=Tagged')).toEqual([])
+    await post(`/api/notes/${saved[3].id}/archive`, { version: 1 }, cookie)
+    expect(await ids('q=Literal')).toEqual([])
+    expect(await ids('archived=true&q=literal')).toEqual([saved[3].id])
+    expect(await ids('archived=true&q=needle')).toEqual([])
+    expect(await ids('tag=Archived%20only')).toEqual([])
+
+    const other = await account()
+
+    expect(await ids('q=needle', other.cookie)).toEqual([])
+    expect(await (await get('/api/notes/tags', other.cookie)).json()).toEqual({ tags: [] })
+    expect(await (await get('/api/notes/tags', cookie)).json()).toEqual({
+      tags: ['Archived only', 'Needle', 'Work'],
+    })
+    expect((await get('/api/notes?q=needle', '')).status).toBe(401)
+    expect((await get('/api/notes/tags', '')).status).toBe(401)
+    await $fetch('/__test/auth-state', {
+      method: 'POST',
+      body: { email: other.email, unverify: true },
+    })
+    expect((await get('/api/notes?q=needle', other.cookie)).status).toBe(403)
+    expect((await get('/api/notes/tags', other.cookie)).status).toBe(403)
+  })
+
+  it('derives tags and filtered results from current persisted edits, archive, restore and deletion', async () => {
+    const { cookie } = await account()
+    const note = await (await post('/api/notes', {
+      title: 'Before',
+      tags: ['Old'],
+    }, cookie)).json()
+    const tags = async () => (await (await get('/api/notes/tags', cookie)).json()).tags
+
+    expect(await tags()).toEqual(['Old'])
+    await post(`/api/notes/${note.id}`, {
+      title: 'After',
+      tags: ['New'],
+      version: 1,
+    }, cookie, 'PUT')
+    expect(await tags()).toEqual(['New'])
+    expect(await (await get('/api/notes?q=Before', cookie)).json()).toEqual({ notes: [] })
+    await post(`/api/notes/${note.id}/archive`, { version: 2 }, cookie)
+    expect(await tags()).toEqual(['New'])
+    expect(await (await get('/api/notes?tag=New', cookie)).json()).toEqual({ notes: [] })
+    await post(`/api/notes/${note.id}/restore`, { version: 3 }, cookie)
+    expect((await (await get('/api/notes?tag=new', cookie)).json()).notes).toHaveLength(1)
+    await post(`/api/notes/${note.id}`, { version: 4 }, cookie, 'DELETE')
+    expect(await tags()).toEqual([])
+    expect(await (await get('/api/notes?q=After', cookie)).json()).toEqual({ notes: [] })
+
+    for (const query of ['q=a&q=b', 'tag=a&tag=b', 'archived=invalid'])
+      expect((await get(`/api/notes?${query}`, cookie)).status).toBe(422)
+  })
+
   it('explicitly creates a private plain-text note and reopens it through fresh HTTP requests', async () => {
     const { cookie } = await account()
     const before = Date.now()

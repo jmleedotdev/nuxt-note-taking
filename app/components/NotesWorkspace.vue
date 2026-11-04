@@ -9,10 +9,33 @@ const creating = computed(() => !props.archived && route.query.draft === '1')
 const noteId = computed(() => typeof route.query.note === 'string'
   ? route.query.note
   : '')
-const contextQuery = computed(() => props.archived
-  ? { view: 'archived' }
-  : {})
-const { data, status, error, refresh } = await useAsyncData(() => props.archived ? 'archived-notes' : 'active-notes', () => notes.list(props.archived))
+const query = computed(() => typeof route.query.q === 'string'
+  ? route.query.q
+  : '')
+const tag = computed(() => typeof route.query.tag === 'string'
+  ? route.query.tag
+  : '')
+const contextQuery = computed(() => ({
+  ...(props.archived
+    ? { view: 'archived' }
+    : {}),
+  ...(query.value
+    ? { q: query.value }
+    : {}),
+  ...(tag.value
+    ? { tag: tag.value }
+    : {}),
+  ...(route.query.panel === 'search'
+    ? { panel: 'search' }
+    : {}),
+}))
+const { data, status, error, refresh } = await useAsyncData(
+  () => props.archived ? 'archived-notes' : 'active-notes',
+  () => notes.list(props.archived, query.value, tag.value),
+  {
+    watch: [query, tag],
+  },
+)
 const { data: selected, status: readStatus, error: readError, refresh: reread } = await useAsyncData(
   () => `note-${noteId.value}`,
   () => noteId.value
@@ -74,7 +97,7 @@ async function transition(action: 'archive' | 'delete' = 'archive') {
     })
     pending.value = false
     await navigateTo({ path: '/', query: contextQuery.value })
-    await refreshNuxtData(['active-notes', 'archived-notes'])
+    await refreshNuxtData(['active-notes', 'archived-notes', 'note-tags'])
   } catch (error) {
     const code = (error as { data?: { error?: { code?: string } } }).data?.error?.code
 
@@ -167,7 +190,10 @@ async function back() {
 
 async function removed() {
   dirty.value = false
-  await refresh()
+  await Promise.all([
+    refresh(),
+    refreshNuxtData('note-tags'),
+  ])
   await navigateTo({ path: '/', query: contextQuery.value })
 }
 
@@ -182,7 +208,10 @@ async function saved(note: Note) {
     })
   }
 
-  await refresh()
+  await Promise.all([
+    refresh(),
+    refreshNuxtData('note-tags'),
+  ])
 }
 
 function date(value: string) {
@@ -203,7 +232,19 @@ function date(value: string) {
       </UButton>
 
       <div>
-        <p v-if="archived" class="mb-4 text-sm text-neutral-700 dark:text-neutral-300">
+        <p v-if="tag" class="mb-4 text-sm text-neutral-700 wrap-anywhere dark:text-neutral-300">
+          All active notes with the “{{ tag }}” tag are shown here.
+        </p>
+
+        <p v-else-if="query" class="mb-4 text-sm text-neutral-700 wrap-anywhere dark:text-neutral-300">
+          {{ archived ? 'Archived' : 'Active' }} notes matching “{{ query }}” are displayed below.
+        </p>
+
+        <p v-else-if="route.query.panel === 'search'" class="mb-4 text-sm text-neutral-700 dark:text-neutral-300">
+          Enter a search and press Enter to search your saved {{ archived ? 'archived' : 'active' }} notes.
+        </p>
+
+        <p v-else-if="archived" class="mb-4 text-sm text-neutral-700 dark:text-neutral-300">
           All your archived notes are stored here. Restore a note to edit it again.
         </p>
 
@@ -220,7 +261,7 @@ function date(value: string) {
         </div>
 
         <p v-else-if="!data?.notes.length" class="rounded-lg border border-neutral-200 bg-neutral-100 p-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
-          {{ archived ? 'No notes have been archived yet.' : 'You don’t have any notes yet. Start a new note to capture your thoughts and ideas.' }}
+          {{ query ? 'No notes match your search. Try a different keyword.' : tag ? 'No active notes have this tag.' : archived ? 'No notes have been archived yet.' : 'You don’t have any notes yet. Start a new note to capture your thoughts and ideas.' }}
         </p>
 
         <ul v-else class="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -229,7 +270,7 @@ function date(value: string) {
               <span class="block text-base font-semibold wrap-anywhere">{{ note.title }}</span>
 
               <span v-if="note.tags.length" class="mt-3 flex flex-wrap gap-1">
-                <span v-for="tag in note.tags" :key="tag" class="rounded bg-neutral-200 px-1.5 py-0.5 text-xs wrap-anywhere dark:bg-neutral-700">{{ tag }}</span>
+                <span v-for="noteTag in note.tags" :key="noteTag" class="rounded bg-neutral-200 px-1.5 py-0.5 text-xs wrap-anywhere dark:bg-neutral-700">{{ noteTag }}</span>
               </span>
 
               <time :datetime="note.lastEdited" class="mt-3 block text-xs text-neutral-700 dark:text-neutral-300">{{ date(note.lastEdited) }}</time>
@@ -270,7 +311,7 @@ function date(value: string) {
             <span class="flex items-center gap-2"><UIcon name="i-app-tag" class="size-4" />Tags</span>
 
             <div aria-label="Saved note tags" class="flex flex-wrap gap-1">
-              <span v-for="tag in selected.tags" :key="tag" class="rounded bg-neutral-200 px-1.5 py-0.5 wrap-anywhere dark:bg-neutral-700">{{ tag }}</span>
+              <span v-for="noteTag in selected.tags" :key="noteTag" class="rounded bg-neutral-200 px-1.5 py-0.5 wrap-anywhere dark:bg-neutral-700">{{ noteTag }}</span>
 
               <span v-if="!selected.tags.length">No tags</span>
             </div>
