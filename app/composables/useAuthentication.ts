@@ -2,6 +2,7 @@ export function useAuthentication() {
   const session = useState<AuthenticatedSession | null>('authenticated-session', () => null)
   const request = useRequestFetch()
   const event = useRequestEvent()
+  const appearance = useAppearance()
 
   async function refresh() {
     let status = 503
@@ -23,6 +24,11 @@ export function useAuthentication() {
       ? result
       : null
 
+    if (status === 200 && session.value)
+      await appearance.load(session.value.user.id)
+    else if (status === 401 || status === 403)
+      appearance.leaveAccount()
+
     if (status >= 500)
       throw createError({ statusCode: 503, message: 'Unable to check your session. Please try again.' })
 
@@ -42,6 +48,7 @@ export function useAuthentication() {
   async function logout() {
     await $fetch('/api/logout', { method: 'POST', body: {} })
     session.value = null
+    appearance.leaveAccount()
   }
 
   return { session, refresh, login, logout }

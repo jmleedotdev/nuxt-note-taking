@@ -7,7 +7,7 @@ const origin = 'http://localhost:3000'
 
 let ip = 120
 
-function post(path: string, body: unknown, cookie = '', method = 'POST') {
+function requestJSON(path: string, body: unknown, cookie = '', method = 'POST') {
   const address = ip++
 
   return fetch(url(path), {
@@ -26,14 +26,14 @@ async function account() {
   const email = `preferences-${randomUUID()}@example.test`
   const password = 'Abcdef1!'
 
-  expect((await post('/api/registration', { email, password })).status).toBe(202)
+  expect((await requestJSON('/api/registration', { email, password })).status).toBe(202)
 
   const messages = await $fetch<{ to: string, text: string }[]>('/__test/mail')
   const link = new URL(messages.find(message => message.to === email)!.text.match(/https?:\/\/\S+/)![0])
 
   await fetch(url(link.pathname + link.search), { redirect: 'manual' })
 
-  const response = await post('/api/login', { email, password })
+  const response = await requestJSON('/api/login', { email, password })
 
   expect(response.status).toBe(200)
 
@@ -75,7 +75,7 @@ describe('account appearance HTTP contract', async () => {
     const input = { theme: 'light', font: 'source-code-pro' }
 
     expect((await get('/api/preferences', '')).status).toBe(401)
-    expect((await post('/api/preferences', input, '', 'PUT')).status).toBe(401)
+    expect((await requestJSON('/api/preferences', input, '', 'PUT')).status).toBe(401)
 
     for (const invalid of [
       {},
@@ -84,7 +84,7 @@ describe('account appearance HTTP contract', async () => {
       { ...input, ownerId: 'another-user' },
       { ...input, theme: null },
     ]) {
-      const response = await post('/api/preferences', invalid, cookie, 'PUT')
+      const response = await requestJSON('/api/preferences', invalid, cookie, 'PUT')
 
       expect(response.status).toBe(422)
       expect((await response.json()).error.code).toBe('VALIDATION')
@@ -107,7 +107,7 @@ describe('account appearance HTTP contract', async () => {
       body: { email, unverify: true },
     })
     expect((await get('/api/preferences', cookie)).status).toBe(403)
-    expect((await post('/api/preferences', input, cookie, 'PUT')).status).toBe(403)
+    expect((await requestJSON('/api/preferences', input, cookie, 'PUT')).status).toBe(403)
   })
 
   it('returns System and Inter defaults and persists owner-scoped appearance across sessions', async () => {
@@ -119,12 +119,12 @@ describe('account appearance HTTP contract', async () => {
     expect(defaults.headers.get('cache-control')).toBe('no-store')
     expect(await defaults.json()).toEqual({ theme: 'system', font: 'inter' })
 
-    const saved = await post('/api/preferences', { theme: 'dark', font: 'noto-serif' }, first.cookie, 'PUT')
+    const saved = await requestJSON('/api/preferences', { theme: 'dark', font: 'noto-serif' }, first.cookie, 'PUT')
 
     expect(saved.status).toBe(200)
     expect(await saved.json()).toEqual({ theme: 'dark', font: 'noto-serif' })
 
-    const login = await post('/api/login', { email: first.email, password: 'Abcdef1!' })
+    const login = await requestJSON('/api/login', { email: first.email, password: 'Abcdef1!' })
     const cookie = login.headers.getSetCookie().map(value => value.split(';')[0]).join('; ')
 
     expect(await (await getPreferences(cookie)).json()).toEqual({ theme: 'dark', font: 'noto-serif' })
@@ -132,7 +132,7 @@ describe('account appearance HTTP contract', async () => {
     const second = await account()
 
     expect(await (await getPreferences(second.cookie)).json()).toEqual({ theme: 'system', font: 'inter' })
-    expect((await post('/api/preferences', { theme: 'light', font: 'source-code-pro' }, second.cookie, 'PUT')).status).toBe(200)
+    expect((await requestJSON('/api/preferences', { theme: 'light', font: 'source-code-pro' }, second.cookie, 'PUT')).status).toBe(200)
     expect(await (await getPreferences(first.cookie)).json()).toEqual({ theme: 'dark', font: 'noto-serif' })
   })
 })
