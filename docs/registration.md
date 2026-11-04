@@ -55,7 +55,7 @@ existing table names or column types.
 
 ## Tests and isolation
 
-`server/registration/` contains runtime application code: registration configuration,
+`server/auth/` contains runtime application code: auth configuration,
 auth integration, password hashing, abuse controls, HTTP admission, and mail sending.
 It is not test scaffolding. `test/fixtures/` provides test-only database setup and
 mail capture/failure controls; the HTTP fixture imports the runtime service rather

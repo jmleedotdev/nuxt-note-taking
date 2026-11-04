@@ -1,9 +1,9 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { registrationConfig } from '../registration/config'
+import { authConfig } from '../auth/config'
 
 export function createDatabase() {
-  const client = postgres(registrationConfig().DATABASE_URL)
+  const client = postgres(authConfig().DATABASE_URL)
 
   return {
     client,

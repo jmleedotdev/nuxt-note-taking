@@ -27,11 +27,11 @@ const schema = z.object({
   }
 })
 
-export function registrationConfig() {
+export function authConfig() {
   const result = schema.safeParse(process.env)
 
   if (!result.success) {
-    throw new Error('Invalid server registration configuration')
+    throw new Error('Invalid server auth configuration')
   }
 
   return result.data

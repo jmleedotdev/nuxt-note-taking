@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { registrationService } from '../registration/service'
+import { authService } from './service'
 
 export function forwardAuthCookies(event: H3Event, response: Response) {
   for (const cookie of response.headers.getSetCookie()) {
@@ -10,7 +10,7 @@ export function forwardAuthCookies(event: H3Event, response: Response) {
 export async function requireVerifiedSession(event: H3Event): Promise<AuthenticatedSession> {
   setHeader(event, 'Cache-Control', 'no-store')
 
-  const response = await registrationService().session(new Headers(getRequestHeaders(event) as HeadersInit))
+  const response = await authService().session(new Headers(getRequestHeaders(event) as HeadersInit))
 
   forwardAuthCookies(event, response)
 
@@ -26,7 +26,7 @@ export async function requireVerifiedSession(event: H3Event): Promise<Authentica
   const result = await response.json()
 
   if (result && Date.now() >= new Date(result.session.createdAt).getTime() + 604800000) {
-    const revoked = await registrationService().logout(new Headers(getRequestHeaders(event) as HeadersInit))
+    const revoked = await authService().logout(new Headers(getRequestHeaders(event) as HeadersInit))
 
     forwardAuthCookies(event, revoked)
     throw createError({

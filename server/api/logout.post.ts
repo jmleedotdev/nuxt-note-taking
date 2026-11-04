@@ -1,11 +1,11 @@
-import { forwardAuthCookies } from '../authentication/session'
-import { checkRegistrationOrigin } from '../registration/http'
-import { registrationService } from '../registration/service'
+import { checkAuthOrigin } from '../auth/http'
+import { authService } from '../auth/service'
+import { forwardAuthCookies } from '../auth/session'
 
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
 
-  if (!checkRegistrationOrigin(event)) {
+  if (!checkAuthOrigin(event)) {
     setResponseStatus(event, 403)
 
     return {
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const response = await registrationService().logout(new Headers(getRequestHeaders(event) as HeadersInit))
+    const response = await authService().logout(new Headers(getRequestHeaders(event) as HeadersInit))
 
     forwardAuthCookies(event, response)
 

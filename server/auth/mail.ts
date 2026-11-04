@@ -1,4 +1,4 @@
-import type { registrationConfig } from './config'
+import type { authConfig } from './config'
 
 export interface MailMessage { to: string, subject: string, text: string, html: string }
 
@@ -16,7 +16,7 @@ export class MemoryMailSender implements MailSender {
   }
 }
 
-export function createMailSender(config: ReturnType<typeof registrationConfig>): MailSender {
+export function createMailSender(config: ReturnType<typeof authConfig>): MailSender {
   if (config.MAIL_MODE === 'memory') {
     return new MemoryMailSender()
   }

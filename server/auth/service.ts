@@ -2,12 +2,12 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { betterAuth } from 'better-auth/minimal'
 import { createDatabase } from '../db/client'
 import * as schema from '../db/schema/auth'
-import { registrationConfig } from './config'
+import { authConfig } from './config'
 import { createMailSender, verificationMessage } from './mail'
 import { hashPassword, verifyPassword } from './password'
 
-function createRegistrationService() {
-  const config = registrationConfig()
+function createAuthService() {
+  const config = authConfig()
   const { client, db } = createDatabase()
   const sender = createMailSender(config)
   const auth = betterAuth({
@@ -114,8 +114,8 @@ function createRegistrationService() {
   }
 }
 
-let instance: ReturnType<typeof createRegistrationService> | undefined
+let instance: ReturnType<typeof createAuthService> | undefined
 
-export function registrationService() {
-  return instance ??= createRegistrationService()
+export function authService() {
+  return instance ??= createAuthService()
 }

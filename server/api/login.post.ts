@@ -1,12 +1,12 @@
 import { loginSchema } from '../../shared/schemas/registration'
-import { forwardAuthCookies } from '../authentication/session'
-import { admitRegistration } from '../registration/http'
+import { admitAuth } from '../auth/http'
+import { forwardAuthCookies } from '../auth/session'
 
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
 
   try {
-    const admitted = await admitRegistration(event, loginSchema, 'login')
+    const admitted = await admitAuth(event, loginSchema, 'login')
 
     if ('response' in admitted)
       return admitted.response

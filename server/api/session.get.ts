@@ -1,5 +1,5 @@
 import { isError } from 'h3'
-import { requireVerifiedSession } from '../authentication/session'
+import { requireVerifiedSession } from '../auth/session'
 
 export default defineEventHandler(async (event) => {
   try {

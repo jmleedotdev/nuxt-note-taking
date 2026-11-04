@@ -61,7 +61,7 @@ Path=/, and Secure with the `__Secure-` prefix when `APP_URL` uses HTTPS.
 The guard also rejects sessions at or beyond `createdAt + seven days`, even if a
 stored expiration has become longer. Ordinary use never rolls the lifetime.
 
-`server/authentication/session.ts` exports `requireVerifiedSession(event)` for
+`server/auth/session.ts` exports `requireVerifiedSession(event)` for
 later notes, derived tags, preferences, and password-change operations. Call it
 on **every protected server request**; client/page state is never authorization.
 The guard checks both the authoritative session and the current user's verified

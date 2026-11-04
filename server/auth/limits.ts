@@ -1,11 +1,11 @@
 import type { H3Event } from 'h3'
-import type { registrationService } from './service'
+import type { authService } from './service'
 import { createHmac } from 'node:crypto'
 import { isIP } from 'node:net'
 
-type Service = ReturnType<typeof registrationService>
+type Service = ReturnType<typeof authService>
 
-export function registrationClientIP(event: H3Event, service: Service) {
+export function authClientIP(event: H3Event, service: Service) {
   const peer = (event.node.req.socket.remoteAddress ?? 'unknown').replace(/^::ffff:/, '')
 
   // Trust one overwriting proxy only; never trust a client-supplied forwarded chain.
@@ -20,7 +20,7 @@ export function registrationClientIP(event: H3Event, service: Service) {
   return peer
 }
 
-export async function consumeRegistrationLimit(service: Service, ip: string, email?: string, purpose: 'registration' | 'login' = 'registration') {
+export async function consumeAuthLimit(service: Service, ip: string, email?: string, purpose: 'registration' | 'login' = 'registration') {
   const digest = (value: string) => createHmac('sha256', service.config.APP_AUTH_SECRET).update(value).digest('hex')
   const rules = [
     { key: 'global', max: 500, seconds: 3600 },

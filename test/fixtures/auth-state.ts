@@ -1,10 +1,10 @@
 import { defineEventHandler, readBody } from 'h3'
-import { registrationService } from '../../server/registration/service'
+import { authService } from '../../server/auth/service'
 
 // Test-only clock/state setup; never mounted by runtime Nuxt configuration.
 export default defineEventHandler(async (event) => {
   const { email, ageSeconds, unverify, expire, failLogout } = await readBody(event)
-  const { client } = registrationService()
+  const { client } = authService()
 
   if (typeof ageSeconds === 'number') {
     await client`
