@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { expect, test } from '@nuxt/test-utils/playwright'
 
 test('permanent delete confirms, cancels safely and updates selection and empty states', async ({ page, goto }, testInfo) => {
+  if (testInfo.project.name === 'mobile')
+    await page.setViewportSize({ width: 375, height: 812 })
+
   await page.emulateMedia({
     colorScheme: testInfo.project.name === 'tablet'
       ? 'dark'
@@ -91,10 +94,11 @@ test('permanent delete confirms, cancels safely and updates selection and empty 
   await expect(modal).toHaveCount(0)
   expect((await page.request.get(`/api/notes/${archived.id}`)).status()).toBe(200)
   await trigger.click()
+  await expect(modal).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.screenshot({
+  await modal.screenshot({
     path: testInfo.outputPath('delete-confirmation.png'),
-    fullPage: true,
+    animations: 'disabled',
   })
   await modal.getByRole('button', { name: 'Delete Note', exact: true }).click()
   await expect(page).toHaveURL(/\?view=archived$/)

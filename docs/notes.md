@@ -102,9 +102,15 @@ Successful deletion clears the selected note cache and refreshes both note lists
 returning to the current collection with its remaining notes or empty state.
 Search and derived tag navigation are not present yet.
 
-The supplied Figma file could not be inspected for this slice: the MCP metadata
-request returned an edit-access denial. The existing Nuxt UI confirmation pattern
-was reused; exact delete-frame visual fidelity remains unverified.
+Direct access to the supplied Figma file remains blocked by an MCP edit-access
+denial. The user subsequently supplied dark, light and narrow light confirmation
+screenshots, which were inspected to style the existing Nuxt UI `UModal` through
+its title/footer slots and `ui` options. The dialog uses the supplied trash icon in
+a neutral tile, a filled Cancel button, red Delete Note action, divided footer and
+responsive text wrapping. Nuxt UI retains the accessible title/description, focus
+trap, initial Cancel focus, Escape dismissal and trigger focus restoration.
+Browser captures verify the rendered light/dark dialog and a 375px mobile viewport;
+exact Figma node measurements remain unavailable.
 
 ## Validation
 
