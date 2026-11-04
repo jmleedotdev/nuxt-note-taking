@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import type { Note } from '#shared/types/note'
 
-const props = defineProps<{ archived: boolean, confirmDiscard: () => Promise<boolean> }>()
+const props = defineProps<{ archived: boolean, query: string, tag: string, confirmDiscard: () => Promise<boolean> }>()
+const { query, tag } = toRefs(props)
 const route = useRoute()
 const notes = useNotes()
 const dirty = useState('note-dirty', () => false)
 const creating = computed(() => !props.archived && route.query.draft === '1')
 const noteId = computed(() => typeof route.query.note === 'string'
   ? route.query.note
-  : '')
-const query = computed(() => typeof route.query.q === 'string'
-  ? route.query.q
-  : '')
-const tag = computed(() => typeof route.query.tag === 'string'
-  ? route.query.tag
   : '')
 const contextQuery = computed(() => ({
   ...(props.archived

@@ -127,7 +127,7 @@ async function logout() {
         Tags
       </p>
 
-      <TagNavigation compact />
+      <TagNavigation compact @reselect="search = ''" />
 
       <div class="mt-auto space-y-3 pt-8">
         <p class="break-all px-3 text-xs text-neutral-600 dark:text-neutral-400">
@@ -183,12 +183,12 @@ async function logout() {
         </form>
 
         <template v-if="tagsPanel">
-          <TagNavigation class="xl:p-6" />
+          <TagNavigation class="xl:p-6" @reselect="search = ''" />
 
           <UButton to="/?draft=1" icon="i-app-plus" aria-label="Create New Note" class="fixed right-4 bottom-24 size-12 justify-center rounded-full shadow-lg sm:right-8 sm:size-16 xl:hidden" />
         </template>
 
-        <NotesWorkspace v-else :archived="archived" :confirm-discard="confirmDiscard" />
+        <NotesWorkspace v-else :archived="archived" :query="query" :tag="tag" :confirm-discard="confirmDiscard" />
       </main>
     </div>
 

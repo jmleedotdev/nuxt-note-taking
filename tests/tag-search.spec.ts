@@ -84,6 +84,14 @@ test('saved tag navigation and scoped search clear filters across responsive jou
   await openTags()
   await page.getByRole('link', { name: 'Tag: Work', exact: true }).filter({ visible: true }).click()
   await expect(page.getByRole('button', { name: 'Active reference', exact: true })).toBeVisible()
+
+  if (desktop) {
+    await search.fill('Unsubmitted query')
+    await page.getByRole('link', { name: 'Tag: Work', exact: true }).filter({ visible: true }).click()
+    await expect(search).toHaveValue('')
+    await expect(page.getByRole('button', { name: 'Active reference', exact: true })).toBeVisible()
+  }
+
   await page.getByRole('button', { name: 'Active reference', exact: true }).click()
   await page.getByLabel('Tags', { exact: true }).fill('Unsaved')
 
