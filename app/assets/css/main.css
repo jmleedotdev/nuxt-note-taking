@@ -1,9 +1,48 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
-@theme {
-  --font-sans: 'Inter', sans-serif;
+/* Dynamic font selection uses a CSS variable, so declare the local faces explicitly. */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter/Inter-variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
+@font-face {
+  font-family: 'Noto Serif';
+  src: url('/fonts/noto-serif/noto-serif-variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Source Code Pro';
+  src: url('/fonts/source-code-pro/source-code-pro-variable.ttf') format('truetype');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --app-font: 'Inter', sans-serif;
+}
+
+:root[data-font='noto-serif'] {
+  --app-font: 'Noto Serif', serif;
+}
+
+:root[data-font='source-code-pro'] {
+  --app-font: 'Source Code Pro', monospace;
+}
+
+@theme inline {
+  --font-sans: var(--app-font);
+}
+
+@theme {
   --color-neutral-950: rgb(14, 18, 27);
   --color-neutral-900: rgb(25, 27, 37);
   --color-neutral-800: rgb(35, 37, 48);

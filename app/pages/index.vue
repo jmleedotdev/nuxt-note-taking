@@ -9,9 +9,11 @@ const query = computed(() => typeof route.query.q === 'string'
 const tag = computed(() => typeof route.query.tag === 'string'
   ? route.query.tag
   : '')
+const settingsPanel = computed(() => route.query.panel === 'settings')
+const appearance = useAppearance()
 const tagsPanel = computed(() => route.query.panel === 'tags')
 const searchPanel = computed(() => route.query.panel === 'search')
-const home = computed(() => !archived.value && !tagsPanel.value && !searchPanel.value && !tag.value)
+const home = computed(() => !settingsPanel.value && !archived.value && !tagsPanel.value && !searchPanel.value && !tag.value)
 const search = ref(query.value)
 
 watch(() => route.fullPath, () => {
@@ -35,15 +37,17 @@ async function submitSearch() {
   search.value = query.value
 }
 
-const title = computed(() => tagsPanel.value
-  ? 'Tags'
-  : tag.value
-    ? `Notes Tagged: ${tag.value}`
-    : query.value
-      ? `Showing results for: ${query.value}`
-      : searchPanel.value
-        ? (archived.value ? 'Search Archived Notes' : 'Search')
-        : archived.value ? 'Archived Notes' : 'All Notes')
+const title = computed(() => settingsPanel.value
+  ? 'Settings'
+  : tagsPanel.value
+    ? 'Tags'
+    : tag.value
+      ? `Notes Tagged: ${tag.value}`
+      : query.value
+        ? `Showing results for: ${query.value}`
+        : searchPanel.value
+          ? (archived.value ? 'Search Archived Notes' : 'Search')
+          : archived.value ? 'Archived Notes' : 'All Notes')
 
 useHead({ title })
 
@@ -145,7 +149,7 @@ async function logout() {
     </aside>
 
     <div class="min-w-0 flex-1">
-      <header class="flex h-18 items-center justify-between gap-4 px-4 sm:px-8 xl:h-20 xl:border-b xl:border-neutral-200 xl:bg-neutral-0 dark:xl:border-neutral-800 dark:xl:bg-neutral-950">
+      <header class="flex items-center justify-between gap-4 px-4 sm:px-8 xl:h-20 xl:border-b xl:border-neutral-200 xl:bg-neutral-0 dark:xl:border-neutral-800 dark:xl:bg-neutral-950" :class="settingsPanel ? 'h-13.5 sm:h-18' : 'h-18'">
         <AppLogo role="img" aria-label="notes" class="shrink-0 xl:hidden" />
 
         <h1 class="hidden min-w-0 flex-1 truncate text-2xl font-bold tracking-tight xl:block">
@@ -157,7 +161,7 @@ async function logout() {
             <UInput v-model="search" type="search" icon="i-app-search" placeholder="Search by title, content, or tags…" aria-label="Search notes" class="w-75" />
           </form>
 
-          <UButton icon="i-app-settings" color="neutral" variant="ghost" aria-label="Settings (not available yet)" disabled />
+          <UButton to="/?panel=settings" icon="i-app-settings" color="neutral" variant="ghost" aria-label="Settings" />
         </div>
 
         <UButton icon="i-app-logout" color="neutral" variant="ghost" class="xl:hidden" :loading="pending" @click="logout">
@@ -170,7 +174,7 @@ async function logout() {
           Go Back
         </UButton>
 
-        <h1 class="mb-4 text-2xl font-bold tracking-tight wrap-anywhere xl:hidden" :class="(route.query.draft || route.query.note) && 'sr-only'">
+        <h1 class="mb-4 text-2xl font-bold tracking-tight wrap-anywhere xl:hidden" :class="(route.query.draft || route.query.note || (settingsPanel && route.query.setting)) && 'sr-only'">
           {{ title }}
         </h1>
 
@@ -182,7 +186,14 @@ async function logout() {
           <UInput v-model="search" type="search" icon="i-app-search" placeholder="Search by title, content, or tags…" aria-label="Search notes" class="w-full" />
         </form>
 
-        <template v-if="tagsPanel">
+        <p v-if="!settingsPanel && appearance.status.value === 'error'" role="alert" class="mb-4 text-sm xl:px-8 xl:pt-4">
+          We could not load your account appearance.
+          <NuxtLink to="/?panel=settings&setting=color" class="underline">Open settings to try again.</NuxtLink>
+        </p>
+
+        <AppearanceSettings v-if="settingsPanel" @logout="logout" />
+
+        <template v-else-if="tagsPanel">
           <TagNavigation class="xl:p-6" @reselect="search = ''" />
 
           <UButton to="/?draft=1" icon="i-app-plus" aria-label="Create New Note" class="fixed right-4 bottom-24 size-12 justify-center rounded-full shadow-lg sm:right-8 sm:size-16 xl:hidden" />
@@ -209,7 +220,7 @@ async function logout() {
         <span class="hidden sm:inline">Tags</span>
       </UButton>
 
-      <UButton icon="i-app-settings" color="neutral" variant="ghost" aria-label="Settings (not available yet)" disabled>
+      <UButton to="/?panel=settings" icon="i-app-settings" color="neutral" variant="ghost" aria-label="Settings" :aria-current="settingsPanel ? 'page' : undefined" :class="settingsPanel && 'bg-blue-50 text-blue-500 dark:bg-neutral-800'">
         <span class="hidden sm:inline">Settings</span>
       </UButton>
     </nav>
