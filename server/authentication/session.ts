@@ -1,5 +1,4 @@
 import type { H3Event } from 'h3'
-import type { AuthenticatedSession } from '../../shared/authentication'
 import { registrationService } from '../registration/service'
 
 export function forwardAuthCookies(event: H3Event, response: Response) {

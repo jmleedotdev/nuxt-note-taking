@@ -1,5 +1,3 @@
-import type { AuthenticatedSession } from '#shared/authentication'
-
 export function useAuthentication() {
   const session = useState<AuthenticatedSession | null>('authenticated-session', () => null)
   const request = useRequestFetch()
