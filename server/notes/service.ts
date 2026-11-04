@@ -54,8 +54,30 @@ function createNotesService() {
           : current.isArchived ? 'NOTE_NOT_EDITABLE' : 'NOTE_VERSION_CONFLICT',
       }
     },
-    async list(ownerId: string) {
-      const rows = await db.select().from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.isArchived, false))).orderBy(desc(notes.lastEdited), desc(notes.id))
+    async setArchived(ownerId: string, id: string, version: number, isArchived: boolean) {
+      const [row] = await db.update(notes).set({
+        isArchived,
+        version: sql`CASE WHEN ${notes.isArchived} <> ${isArchived} THEN ${notes.version} + 1 ELSE ${notes.version} END`,
+      }).where(and(
+        eq(notes.ownerId, ownerId),
+        eq(notes.id, id),
+        eq(notes.version, version),
+      )).returning()
+
+      if (row) {
+        return {
+          note: toNote(row),
+        }
+      }
+
+      const [current] = await db.select({ id: notes.id }).from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.id, id)))
+
+      return {
+        error: current ? 'NOTE_VERSION_CONFLICT' : 'NOTE_NOT_FOUND',
+      }
+    },
+    async list(ownerId: string, archived = false) {
+      const rows = await db.select().from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.isArchived, archived))).orderBy(desc(notes.lastEdited), desc(notes.id))
 
       return rows.map(toNote)
     },

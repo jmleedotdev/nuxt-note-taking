@@ -107,6 +107,143 @@ describe('private notes HTTP contract', async () => {
     })
   })
 
+  it('archives and restores without editing chronology, keeping archived notes read-only', async () => {
+    const { cookie } = await account()
+    const note = await (await post('/api/notes', { title: 'Retained', content: 'Reference' }, cookie)).json()
+    const archive = await post(`/api/notes/${note.id}/archive`, { version: 1 }, cookie)
+
+    expect(archive.status).toBe(200)
+
+    const archived = { ...note, isArchived: true, version: 2 }
+
+    expect(await archive.json()).toEqual(archived)
+    expect(await (await get('/api/notes', cookie)).json()).toEqual({ notes: [] })
+    expect(await (await get('/api/notes?archived=true', cookie)).json()).toEqual({
+      notes: [archived],
+    })
+    expect(await (await get(`/api/notes/${note.id}`, cookie)).json()).toEqual(archived)
+    expect((await post(`/api/notes/${note.id}`, { title: 'Forbidden', version: 2 }, cookie, 'PUT')).status).toBe(409)
+    expect(await (await get(`/api/notes/${note.id}`, cookie)).json()).toEqual(archived)
+
+    const restore = await post(`/api/notes/${note.id}/restore`, { version: 2 }, cookie)
+
+    expect(restore.status).toBe(200)
+
+    const restored = { ...note, version: 3 }
+
+    expect(await restore.json()).toEqual(restored)
+    expect(await (await get('/api/notes?archived=true', cookie)).json()).toEqual({ notes: [] })
+    expect(await (await get('/api/notes', cookie)).json()).toEqual({
+      notes: [restored],
+    })
+  })
+
+  it('checks archive and restore ownership, versions, no-ops and competing transitions atomically', async () => {
+    const { cookie } = await account()
+    const other = await account()
+    const note = await (await post('/api/notes', { title: 'Private' }, cookie)).json()
+    const path = `/api/notes/${note.id}`
+
+    for (const action of ['archive', 'restore']) {
+      expect((await post(`${path}/${action}`, { version: 1 })).status).toBe(401)
+
+      const hidden = await post(`${path}/${action}`, { version: 1 }, other.cookie)
+
+      expect(hidden.status).toBe(404)
+      expect(await hidden.json()).toEqual({
+        error: { code: 'NOTE_NOT_FOUND' },
+      })
+
+      for (const version of [0, -1, 1.5, '1', null])
+        expect((await post(`${path}/${action}`, { version }, cookie)).status).toBe(422)
+      expect((await fetch(url(`${path}/${action}`), {
+        method: 'POST',
+        headers: { cookie, 'origin': 'https://evil.example', 'content-type': 'application/json' },
+        body: '{"version":1}',
+      })).status).toBe(403)
+    }
+
+    expect(await (await post(`${path}/restore`, { version: 1 }, cookie)).json()).toEqual(note)
+
+    const races = await Promise.all([
+      post(`${path}/archive`, { version: 1 }, cookie),
+      post(path, { title: 'Competing edit', version: 1 }, cookie, 'PUT'),
+    ])
+
+    expect(races.map(response => response.status).sort()).toEqual([200, 409])
+
+    const current = await (await get(path, cookie)).json()
+
+    expect(current.version).toBe(2)
+
+    for (const action of ['archive', 'restore']) {
+      const stale = await post(`${path}/${action}`, { version: 1 }, cookie)
+
+      expect(stale.status).toBe(409)
+      expect(await stale.json()).toEqual({
+        error: { code: 'NOTE_VERSION_CONFLICT' },
+      })
+    }
+
+    const archived = await (await post(`${path}/archive`, { version: 2 }, cookie)).json()
+
+    expect(await (await get('/api/notes?archived=true', other.cookie)).json()).toEqual({ notes: [] })
+    expect((await get(path, other.cookie)).status).toBe(404)
+    expect(await (await post(`${path}/archive`, { version: archived.version }, cookie)).json()).toEqual(archived)
+
+    const restores = await Promise.all([
+      post(`${path}/restore`, { version: archived.version }, cookie),
+      post(`${path}/restore`, { version: archived.version }, cookie),
+    ])
+
+    expect(restores.map(response => response.status).sort()).toEqual([200, 409])
+    await $fetch('/__test/note-state', {
+      method: 'POST',
+      body: { id: note.id, remove: true },
+    })
+
+    for (const action of ['archive', 'restore']) {
+      const removed = await post(`${path}/${action}`, { version: 4 }, cookie)
+
+      expect(removed.status).toBe(404)
+      expect(await removed.json()).toEqual({
+        error: { code: 'NOTE_NOT_FOUND' },
+      })
+    }
+
+    expect(await (await get('/api/notes?archived=true', other.cookie)).json()).toEqual({ notes: [] })
+  })
+
+  it('restores notes to their chronological position and orders archive clock ties by descending ID', async () => {
+    const { cookie } = await account()
+    const saved = []
+
+    for (const title of ['Older', 'Tie one', 'Tie two']) {
+      const note = await (await post('/api/notes', { title }, cookie)).json()
+
+      await $fetch('/__test/note-state', {
+        method: 'POST',
+        body: {
+          id: note.id,
+          lastEdited: title === 'Older'
+            ? '2026-01-01T00:00:00Z'
+            : '2026-02-01T00:00:00Z',
+          isArchived: false,
+        },
+      })
+      saved.push(note)
+      await post(`/api/notes/${note.id}/archive`, { version: 1 }, cookie)
+    }
+
+    const order = [saved[1].id, saved[2].id].sort().reverse().concat(saved[0].id)
+
+    expect((await (await get('/api/notes?archived=true', cookie)).json()).notes.map((note: { id: string }) => note.id)).toEqual(order)
+
+    for (const note of saved)
+      await post(`/api/notes/${note.id}/restore`, { version: 2 }, cookie)
+    expect((await (await get('/api/notes', cookie)).json()).notes.map((note: { id: string }) => note.id)).toEqual(order)
+  })
+
   it('explicitly edits title, content and tags using the observed version', async () => {
     const { cookie } = await account()
     const original = await (await post('/api/notes', { title: 'Original' }, cookie)).json()
@@ -340,6 +477,10 @@ describe('private notes HTTP contract', async () => {
     }
 
     expect((await post('/api/notes', { title: 'Denied' }, owner.cookie)).status).toBe(403)
+    expect((await get('/api/notes?archived=true', owner.cookie)).status).toBe(403)
+
+    for (const action of ['archive', 'restore'])
+      expect((await post(`/api/notes/${note.id}/${action}`, { version: 1 }, owner.cookie)).status).toBe(403)
   })
 
   it('validates exact limits and never accepts client-owned identity, archive, clock, or version fields', async () => {

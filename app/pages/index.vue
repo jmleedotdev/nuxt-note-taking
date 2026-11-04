@@ -3,6 +3,13 @@ definePageMeta({ middleware: 'authenticated' })
 
 const route = useRoute()
 const archived = computed(() => route.query.view === 'archived')
+// Shared with the later search UI; context switches must never carry a query.
+const search = useState('note-search', () => '')
+
+watch(archived, () => {
+  search.value = ''
+}, { flush: 'sync' })
+
 const title = computed(() => archived.value ? 'Archived Notes' : 'All Notes')
 
 useHead({ title })
@@ -106,7 +113,7 @@ async function logout() {
         </h1>
 
         <div class="hidden items-center gap-5 xl:flex">
-          <UInput icon="i-app-search" placeholder="Search by title, content, or tags…" aria-label="Search notes (not available yet)" disabled class="w-75" />
+          <UInput v-model="search" icon="i-app-search" placeholder="Search by title, content, or tags…" aria-label="Search notes (not available yet)" disabled class="w-75" />
 
           <UButton icon="i-app-settings" color="neutral" variant="ghost" aria-label="Settings (not available yet)" disabled />
         </div>

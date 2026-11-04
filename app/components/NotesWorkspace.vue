@@ -6,10 +6,13 @@ const route = useRoute()
 const notes = useNotes()
 const dirty = useState('note-dirty', () => false)
 const creating = computed(() => !props.archived && route.query.draft === '1')
-const noteId = computed(() => !props.archived && typeof route.query.note === 'string'
+const noteId = computed(() => typeof route.query.note === 'string'
   ? route.query.note
   : '')
-const { data, status, error, refresh } = await useAsyncData('active-notes', notes.list)
+const contextQuery = computed(() => props.archived
+  ? { view: 'archived' }
+  : {})
+const { data, status, error, refresh } = await useAsyncData(() => props.archived ? 'archived-notes' : 'active-notes', () => notes.list(props.archived))
 const { data: selected, status: readStatus, error: readError, refresh: reread } = await useAsyncData(
   () => `note-${noteId.value}`,
   () => noteId.value
@@ -17,6 +20,105 @@ const { data: selected, status: readStatus, error: readError, refresh: reread } 
     : Promise.resolve(null),
 )
 const detail = computed(() => creating.value || !!noteId.value)
+const archiveOpen = ref(false)
+const pending = useState('note-save-pending', () => false)
+const transitionError = ref('')
+const toast = useToast()
+
+let conflictToastId: string | number | undefined
+
+function dismissConflict() {
+  if (conflictToastId !== undefined)
+    toast.remove(conflictToastId)
+  conflictToastId = undefined
+}
+
+onBeforeUnmount(dismissConflict)
+
+watch(noteId, () => {
+  transitionError.value = ''
+  dismissConflict()
+})
+
+async function transition() {
+  archiveOpen.value = false
+
+  const note = selected.value
+
+  if (!note || !await props.confirmDiscard())
+    return
+
+  pending.value = true
+  transitionError.value = ''
+
+  try {
+    const updated = note.isArchived
+      ? await notes.restore(note.id, note.version)
+      : await notes.archive(note.id, note.version)
+
+    dirty.value = false
+    selected.value = updated
+    dismissConflict()
+    toast.add({
+      title: updated.isArchived ? 'Note archived.' : 'Note restored to active notes.',
+      color: 'success',
+    })
+    pending.value = false
+    await navigateTo({ path: '/', query: contextQuery.value })
+    await refreshNuxtData(['active-notes', 'archived-notes'])
+  } catch (error) {
+    const code = (error as { data?: { error?: { code?: string } } }).data?.error?.code
+
+    if (['NOTE_VERSION_CONFLICT', 'NOTE_NOT_FOUND'].includes(code ?? '')) {
+      dismissConflict()
+      conflictToastId = toast.add({
+        title: code === 'NOTE_NOT_FOUND'
+          ? 'This note was removed.'
+          : 'A newer version of this note exists.',
+        description: 'Reload for the latest state.',
+        color: 'warning',
+        duration: 0,
+        actions: [
+          { label: 'Reload note', closeOnClick: false, onClick: reloadTransition },
+        ],
+      }).id
+    } else {
+      transitionError.value = 'We could not change this note. Please try again.'
+    }
+  } finally {
+    pending.value = false
+  }
+}
+
+async function reloadTransition() {
+  if (!selected.value || !await props.confirmDiscard())
+    return
+
+  pending.value = true
+
+  try {
+    const latest = await notes.read(selected.value.id)
+
+    dirty.value = false
+    selected.value = latest
+    dismissConflict()
+    await refresh()
+  } catch (error) {
+    const code = (error as { data?: { error?: { code?: string } } }).data?.error?.code
+
+    if (code === 'NOTE_NOT_FOUND') {
+      dirty.value = false
+      pending.value = false
+      dismissConflict()
+      await navigateTo({ path: '/', query: contextQuery.value })
+      await refresh()
+    } else {
+      transitionError.value = 'We could not reload your note. Your text is still here. Please try again.'
+    }
+  } finally {
+    pending.value = false
+  }
+}
 
 onBeforeRouteUpdate(async () => {
   if (!await props.confirmDiscard())
@@ -51,13 +153,13 @@ async function create() {
 
 async function back() {
   dirty.value = false // Cancel is an explicit discard.
-  await navigateTo('/')
+  await navigateTo({ path: '/', query: contextQuery.value })
 }
 
 async function removed() {
   dirty.value = false
   await refresh()
-  await navigateTo('/')
+  await navigateTo({ path: '/', query: contextQuery.value })
 }
 
 async function saved(note: Note) {
@@ -91,7 +193,11 @@ function date(value: string) {
         Create New Note
       </UButton>
 
-      <template v-if="!archived">
+      <div>
+        <p v-if="archived" class="mb-4 text-sm text-neutral-700 dark:text-neutral-300">
+          All your archived notes are stored here. Restore a note to edit it again.
+        </p>
+
         <p v-if="status === 'pending'" role="status" class="text-sm">
           Loading notes…
         </p>
@@ -105,12 +211,12 @@ function date(value: string) {
         </div>
 
         <p v-else-if="!data?.notes.length" class="rounded-lg border border-neutral-200 bg-neutral-100 p-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
-          You don’t have any notes yet. Start a new note to capture your thoughts and ideas.
+          {{ archived ? 'No notes have been archived yet.' : 'You don’t have any notes yet. Start a new note to capture your thoughts and ideas.' }}
         </p>
 
         <ul v-else class="divide-y divide-neutral-200 dark:divide-neutral-800">
           <li v-for="note in data.notes" :key="note.id" class="py-1">
-            <button type="button" :aria-label="note.title" :aria-current="noteId === note.id ? 'true' : undefined" class="w-full rounded-md p-3 text-left hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-neutral-800" :class="noteId === note.id && 'bg-neutral-100 dark:bg-neutral-800'" @click="navigateTo({ path: '/', query: { note: note.id } })">
+            <button type="button" :aria-label="note.title" :aria-current="noteId === note.id ? 'true' : undefined" class="w-full rounded-md p-3 text-left hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-neutral-800" :class="noteId === note.id && 'bg-neutral-100 dark:bg-neutral-800'" @click="navigateTo({ path: '/', query: { ...contextQuery, note: note.id } })">
               <span class="block text-base font-semibold wrap-anywhere">{{ note.title }}</span>
 
               <span v-if="note.tags.length" class="mt-3 flex flex-wrap gap-1">
@@ -121,18 +227,14 @@ function date(value: string) {
             </button>
           </li>
         </ul>
-      </template>
-
-      <p v-else class="rounded-lg border border-neutral-200 bg-neutral-100 p-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
-        No notes have been archived yet.
-      </p>
+      </div>
     </section>
 
     <section v-if="detail" aria-label="Note" class="min-w-0 flex-1 xl:flex xl:flex-col xl:p-6">
-      <NoteEditor v-if="creating" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @cancel="back" @back="navigateTo('/')" @saved="saved" />
+      <NoteEditor v-if="creating" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @cancel="back" @back="navigateTo({ path: '/', query: contextQuery })" @saved="saved" />
 
       <template v-else>
-        <UButton v-if="!selected || selected.isArchived" icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="mb-4" @click="navigateTo('/')">
+        <UButton v-if="!selected || selected.isArchived" icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="mb-4" @click="navigateTo({ path: '/', query: contextQuery })">
           Go Back
         </UButton>
 
@@ -148,7 +250,7 @@ function date(value: string) {
           </UButton>
         </div>
 
-        <NoteEditor v-else-if="selected && !selected.isArchived" :key="`${selected.id}-${selected.version}`" :note="selected" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @back="navigateTo('/')" @saved="saved" @removed="removed" />
+        <NoteEditor v-else-if="selected && !selected.isArchived" :key="`${selected.id}-${selected.version}`" :note="selected" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @back="navigateTo({ path: '/', query: contextQuery })" @saved="saved" @removed="removed" />
 
         <article v-else-if="selected" class="space-y-4">
           <h2 class="text-2xl font-bold tracking-tight wrap-anywhere">
@@ -166,6 +268,12 @@ function date(value: string) {
           </div>
 
           <div class="flex gap-4 text-sm">
+            <span class="flex w-28.75 items-center gap-2"><UIcon name="i-app-status" class="size-4" />Status</span>
+
+            <span>Archived</span>
+          </div>
+
+          <div class="flex gap-4 text-sm">
             <span class="flex items-center gap-2"><UIcon name="i-app-clock" class="size-4" />Last edited</span>
 
             <time :datetime="selected.lastEdited">{{ date(selected.lastEdited) }}</time>
@@ -177,6 +285,32 @@ function date(value: string) {
         </article>
       </template>
     </section>
+
+    <aside v-if="selected && detail && !creating" aria-label="Note actions" class="mb-4 flex flex-col gap-3 border-neutral-200 pt-4 xl:order-last xl:mb-0 xl:w-64 xl:shrink-0 xl:border-l xl:p-5 dark:border-neutral-800">
+      <UButton v-if="selected.isArchived" icon="i-app-restore" color="neutral" variant="outline" :loading="pending" @click="transition">
+        Restore Note
+      </UButton>
+
+      <UButton v-else icon="i-app-archive" color="neutral" variant="outline" :disabled="pending" @click="archiveOpen = true">
+        Archive Note
+      </UButton>
+
+      <p v-if="transitionError" role="alert" class="text-sm text-red-600 dark:text-red-400">
+        {{ transitionError }}
+      </p>
+    </aside>
+
+    <UModal v-model:open="archiveOpen" title="Archive Note" description="Are you sure you want to archive this note? You can find it in the Archived Notes section and restore it anytime." :ui="{ content: 'max-w-110' }">
+      <template #footer>
+        <UButton color="neutral" variant="outline" @click="archiveOpen = false">
+          Cancel
+        </UButton>
+
+        <UButton icon="i-app-archive" @click="transition">
+          Archive Note
+        </UButton>
+      </template>
+    </UModal>
 
     <UButton v-if="!archived && !detail" icon="i-app-plus" aria-label="Create New Note" class="fixed right-4 bottom-24 size-12 justify-center rounded-full shadow-lg sm:right-8 sm:size-16 xl:hidden" @click="create" />
   </div>

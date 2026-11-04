@@ -48,9 +48,7 @@ function conflict(code?: string) {
     id: 'note-conflict',
     title: code === 'NOTE_NOT_FOUND'
       ? 'This note was removed.'
-      : code === 'NOTE_NOT_EDITABLE'
-        ? 'This note was archived.'
-        : 'A newer version of this note exists.',
+      : 'A newer version of this note exists.',
     description: 'Your text is still here. Copy anything you need, then reload for the latest state.',
     color: 'warning',
     duration: 0,
