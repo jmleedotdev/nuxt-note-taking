@@ -14,6 +14,10 @@ export function useNotes() {
       method: 'POST',
       body: { version },
     }),
+    delete: (id: string, version: number) => $fetch<void>(`/api/notes/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      body: { version },
+    }),
     read: (id: string) => request<Note>(`/api/notes/${encodeURIComponent(id)}`),
     update: (id: string, input: NoteInput & { version: number }) => $fetch<Note>(`/api/notes/${encodeURIComponent(id)}`, { method: 'PUT', body: input }),
     create: (input: NoteInput) => $fetch<Note>('/api/notes', { method: 'POST', body: input }),

@@ -76,6 +76,22 @@ function createNotesService() {
         error: current ? 'NOTE_VERSION_CONFLICT' : 'NOTE_NOT_FOUND',
       }
     },
+    async delete(ownerId: string, id: string, version: number) {
+      const [removed] = await db.delete(notes).where(and(
+        eq(notes.ownerId, ownerId),
+        eq(notes.id, id),
+        eq(notes.version, version),
+      )).returning({ id: notes.id })
+
+      if (removed)
+        return { deleted: true } as const
+
+      const [current] = await db.select({ id: notes.id }).from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.id, id)))
+
+      return {
+        error: current ? 'NOTE_VERSION_CONFLICT' : 'NOTE_NOT_FOUND',
+      } as const
+    },
     async list(ownerId: string, archived = false) {
       const rows = await db.select().from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.isArchived, archived))).orderBy(desc(notes.lastEdited), desc(notes.id))
 

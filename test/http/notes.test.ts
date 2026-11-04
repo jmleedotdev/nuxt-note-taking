@@ -8,13 +8,15 @@ const origin = 'http://localhost:3000'
 let ip = 120
 
 function post(path: string, body: unknown, cookie = '', method = 'POST') {
+  const address = ip++
+
   return fetch(url(path), {
     method,
     headers: {
       'content-type': 'application/json',
       origin,
       cookie,
-      'x-real-ip': `192.0.2.${ip++}`,
+      'x-real-ip': `198.19.${Math.floor(address / 256)}.${address % 256}`,
     },
     body: JSON.stringify(body),
   })
@@ -105,6 +107,130 @@ describe('private notes HTTP contract', async () => {
     expect(await (await get('/api/notes', cookie)).json()).toEqual({
       notes: [note],
     })
+  })
+
+  it('permanently deletes active and archived notes using their observed version', async () => {
+    const { cookie } = await account()
+
+    for (const archived of [false, true]) {
+      let note = await (await post('/api/notes', {
+        title: 'Delete permanently',
+        tags: ['Temporary'],
+      }, cookie)).json()
+
+      if (archived)
+        note = await (await post(`/api/notes/${note.id}/archive`, { version: 1 }, cookie)).json()
+
+      const path = `/api/notes/${note.id}`
+      const response = await post(path, { version: note.version }, cookie, 'DELETE')
+
+      expect(response.status).toBe(204)
+      expect(response.headers.get('cache-control')).toBe('no-store')
+      expect(await response.text()).toBe('')
+      expect((await get(path, cookie)).status).toBe(404)
+      expect(await (await get('/api/notes', cookie)).json()).toEqual({ notes: [] })
+      expect(await (await get('/api/notes?archived=true', cookie)).json()).toEqual({ notes: [] })
+      expect((await post(`${path}/restore`, { version: note.version }, cookie)).status).toBe(404)
+      expect((await post(path, { title: 'Resurrect', version: note.version }, cookie, 'PUT')).status).toBe(404)
+      expect((await post(path, { version: note.version }, cookie, 'DELETE')).status).toBe(404)
+    }
+  })
+
+  it('protects deletion with authentication, ownership, input validation and origin checks', async () => {
+    const owner = await account()
+    const other = await account()
+    const note = await (await post('/api/notes', { title: 'Private' }, owner.cookie)).json()
+    const path = `/api/notes/${note.id}`
+
+    expect((await post(path, { version: 1 }, '', 'DELETE')).status).toBe(401)
+
+    for (const id of [
+      note.id,
+      randomUUID(),
+      'invalid',
+    ]) {
+      const response = await post(`/api/notes/${id}`, { version: 1 }, other.cookie, 'DELETE')
+
+      expect(response.status).toBe(404)
+      expect(await response.json()).toEqual({
+        error: { code: 'NOTE_NOT_FOUND' },
+      })
+    }
+
+    for (const body of [
+      {},
+      ...[0, -1, 1.5, '1', null].map(version => ({ version })),
+      { version: 1, ownerId: owner.email },
+    ])
+      expect((await post(path, body, owner.cookie, 'DELETE')).status).toBe(422)
+
+    for (const headers of [
+      { 'content-type': 'application/json' },
+      { 'content-type': 'application/json', 'origin': 'https://evil.example' },
+      { 'content-type': 'text/plain', origin },
+      { 'content-type': 'application/json', origin, 'sec-fetch-site': 'cross-site' },
+    ]) {
+      expect((await fetch(url(path), {
+        method: 'DELETE',
+        headers: { ...headers, cookie: owner.cookie },
+        body: '{"version":1}',
+      })).status).toBe(403)
+    }
+
+    expect(await (await get(path, owner.cookie)).json()).toEqual(note)
+    await $fetch('/__test/auth-state', {
+      method: 'POST',
+      body: { email: owner.email, unverify: true },
+    })
+    expect((await post(path, { version: 1 }, owner.cookie, 'DELETE')).status).toBe(403)
+  })
+
+  it('rejects stale deletes and atomically resolves competing deletes, edits and archive transitions', async () => {
+    const { cookie } = await account()
+    const note = await (await post('/api/notes', { title: 'Original' }, cookie)).json()
+    const path = `/api/notes/${note.id}`
+    const edited = await (await post(path, { title: 'Newer', version: 1 }, cookie, 'PUT')).json()
+    const stale = await post(path, { version: 1 }, cookie, 'DELETE')
+
+    expect(stale.status).toBe(409)
+    expect(await stale.json()).toEqual({
+      error: { code: 'NOTE_VERSION_CONFLICT' },
+    })
+    expect(await (await get(path, cookie)).json()).toEqual(edited)
+
+    const deletions = await Promise.all([
+      post(path, { version: 2 }, cookie, 'DELETE'),
+      post(path, { version: 2 }, cookie, 'DELETE'),
+    ])
+
+    expect(deletions.map(response => response.status).sort()).toEqual([204, 404])
+    expect(await deletions.find(response => response.status === 404)!.json()).toEqual({
+      error: { code: 'NOTE_NOT_FOUND' },
+    })
+
+    for (const action of ['edit', 'archive', 'restore']) {
+      let candidate = await (await post('/api/notes', { title: 'Race' }, cookie)).json()
+
+      if (action === 'restore')
+        candidate = await (await post(`/api/notes/${candidate.id}/archive`, { version: 1 }, cookie)).json()
+
+      const target = `/api/notes/${candidate.id}`
+      const results = await Promise.all([
+        post(target, { version: candidate.version }, cookie, 'DELETE'),
+        action === 'edit'
+          ? post(target, { title: 'Changed', version: candidate.version }, cookie, 'PUT')
+          : post(`${target}/${action}`, { version: candidate.version }, cookie),
+      ])
+
+      if (results[0]!.status === 204) {
+        expect(results[1]!.status).toBe(404)
+        expect((await get(target, cookie)).status).toBe(404)
+      } else {
+        expect(results[0]!.status).toBe(409)
+        expect(results[1]!.status).toBe(200)
+        expect(await (await get(target, cookie)).json()).toEqual(await results[1]!.json())
+      }
+    }
   })
 
   it('archives and restores without editing chronology, keeping archived notes read-only', async () => {
