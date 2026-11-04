@@ -1,6 +1,6 @@
 import type { NoteInput } from '../../shared/schemas/note'
 import type { Note } from '../../shared/types/note'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, ne, or, sql } from 'drizzle-orm'
 import { createDatabase } from '../db/client'
 import { notes } from '../db/schema/notes'
 
@@ -24,6 +24,35 @@ function createNotesService() {
       const [row] = await db.insert(notes).values({ ...input, ownerId }).returning()
 
       return toNote(row!)
+    },
+    async update(ownerId: string, id: string, version: number, input: NoteInput) {
+      const changed = or(ne(notes.title, input.title), ne(notes.content, input.content), ne(notes.tags, input.tags))!
+      // PostgreSQL rechecks this predicate after waiting for competing writes.
+      // CASE preserves the logical clock/version for normalized no-op saves.
+      const [row] = await db.update(notes).set({
+        ...input,
+        version: sql`CASE WHEN ${changed} THEN ${notes.version} + 1 ELSE ${notes.version} END`,
+        lastEdited: sql`CASE WHEN ${changed} THEN clock_timestamp() ELSE ${notes.lastEdited} END`,
+      }).where(and(
+        eq(notes.ownerId, ownerId),
+        eq(notes.id, id),
+        eq(notes.version, version),
+        eq(notes.isArchived, false),
+      )).returning()
+
+      if (row) {
+        return {
+          note: toNote(row),
+        }
+      }
+
+      const [current] = await db.select().from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.id, id)))
+
+      return {
+        error: !current
+          ? 'NOTE_NOT_FOUND'
+          : current.isArchived ? 'NOTE_NOT_EDITABLE' : 'NOTE_VERSION_CONFLICT',
+      }
     },
     async list(ownerId: string) {
       const rows = await db.select().from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.isArchived, false))).orderBy(desc(notes.lastEdited), desc(notes.id))
