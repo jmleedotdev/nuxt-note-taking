@@ -10,13 +10,38 @@ useHead({ title })
 const authentication = useAuthentication()
 const pending = ref(false)
 const message = ref('')
+const dirty = useState('new-note-dirty', () => false)
+const discardOpen = ref(false)
+
+let resolveDiscard: ((discard: boolean) => void) | undefined
+
+function confirmDiscard(): Promise<boolean> {
+  if (!dirty.value)
+    return Promise.resolve(true)
+
+  discardOpen.value = true
+
+  return new Promise((resolve) => {
+    resolveDiscard = resolve
+  })
+}
+
+function settleDiscard(discard: boolean) {
+  resolveDiscard?.(discard)
+  resolveDiscard = undefined
+  discardOpen.value = false
+}
 
 async function logout() {
+  if (!await confirmDiscard())
+    return
+
   pending.value = true
   message.value = ''
 
   try {
     await authentication.logout()
+    dirty.value = false
     await navigateTo('/login', { replace: true })
   } catch {
     message.value = 'We could not log you out. Please try again.'
@@ -28,6 +53,18 @@ async function logout() {
 
 <template>
   <div class="min-h-dvh bg-neutral-100 font-sans text-neutral-950 xl:flex dark:bg-neutral-950 dark:text-neutral-0">
+    <UModal :open="discardOpen" title="Discard unsaved note?" description="Your note has not been saved. Leaving will discard your text." @update:open="!$event && settleDiscard(false)">
+      <template #footer>
+        <UButton color="neutral" variant="outline" @click="settleDiscard(false)">
+          Keep writing
+        </UButton>
+
+        <UButton color="error" @click="settleDiscard(true)">
+          Discard note
+        </UButton>
+      </template>
+    </UModal>
+
     <aside class="hidden min-h-dvh w-68 shrink-0 flex-col border-r border-neutral-200 bg-neutral-0 px-4 py-6 xl:flex dark:border-neutral-800 dark:bg-neutral-950">
       <AppLogo role="img" aria-label="notes" class="mb-8 ml-3 shrink-0" />
 
@@ -76,7 +113,7 @@ async function logout() {
       </header>
 
       <main class="min-h-[calc(100dvh-4.5rem)] rounded-t-xl bg-neutral-0 px-4 pt-6 pb-24 sm:px-8 xl:min-h-[calc(100dvh-5rem)] xl:rounded-none xl:p-0 dark:bg-neutral-950">
-        <h1 class="mb-4 text-2xl font-bold tracking-tight xl:hidden">
+        <h1 class="mb-4 text-2xl font-bold tracking-tight xl:hidden" :class="(route.query.draft || route.query.note) && 'sr-only'">
           {{ title }}
         </h1>
 
@@ -84,19 +121,7 @@ async function logout() {
           {{ message }}
         </p>
 
-        <section :aria-label="title" class="xl:min-h-[calc(100dvh-5rem)] xl:w-72.5 xl:border-r xl:border-neutral-200 xl:px-4 xl:py-5 dark:xl:border-neutral-800">
-          <UButton v-if="!archived" icon="i-app-plus" block disabled class="mb-4 hidden justify-center bg-blue-500 text-neutral-0 xl:flex">
-            Create New Note
-          </UButton>
-
-          <p class="rounded-lg border border-neutral-200 bg-neutral-100 p-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
-            {{ archived ? 'No notes have been archived yet.' : 'You don’t have any notes yet. Start a new note to capture your thoughts and ideas.' }}
-          </p>
-
-          <p v-if="!archived" class="mt-3 text-xs text-neutral-600 dark:text-neutral-400">
-            Note creation is coming next.
-          </p>
-        </section>
+        <NotesWorkspace :archived="archived" :confirm-discard="confirmDiscard" />
       </main>
     </div>
 
