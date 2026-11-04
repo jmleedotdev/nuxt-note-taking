@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { z } from 'zod'
-import { Buffer } from 'node:buffer'
+import { readApplicationJSON } from '../utils/readApplicationJSON'
 import { authConfig } from './config'
 import { authClientIP, consumeAuthLimit } from './limits'
 import { authService } from './service'
@@ -12,38 +12,12 @@ export function checkAuthOrigin(event: H3Event) {
 }
 
 async function authInput<T>(event: H3Event, schema: z.ZodType<T>) {
-  // Bound the stream before parsing JSON, including chunked requests.
-  const chunks: Buffer[] = []
+  const body = await readApplicationJSON(event, 4096)
 
-  let size = 0
+  if ('error' in body)
+    return body
 
-  for await (const chunk of event.node.req) {
-    size += Buffer.byteLength(chunk)
-
-    if (size > 4096) {
-      setResponseStatus(event, 413)
-
-      return {
-        error: { code: 'REQUEST_TOO_LARGE' },
-      } as const
-    }
-
-    chunks.push(Buffer.from(chunk))
-  }
-
-  let body: unknown
-
-  try {
-    body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
-  } catch {
-    setResponseStatus(event, 400)
-
-    return {
-      error: { code: 'INVALID_REQUEST' },
-    } as const
-  }
-
-  const parsed = schema.safeParse(body)
+  const parsed = schema.safeParse(body.data)
 
   if (!parsed.success) {
     setResponseStatus(event, 422)
