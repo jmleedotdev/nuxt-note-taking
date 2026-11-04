@@ -1,7 +1,7 @@
 # Creating, editing and reopening private notes
 
 Notes support create/list/read/edit with explicit Save and Cancel, archive/restore,
-and permanent deletion. Search and tag navigation remain later slices. Archived
+permanent deletion, scoped search, and derived tag navigation. Archived
 notes remain read-only until restored, but can be permanently deleted.
 
 ## Application HTTP contract
@@ -100,7 +100,7 @@ before sending a deletion if the editor has unsaved changes. Failed/stale reques
 retain the editor text, use existing error/toast reload recovery, and allow retry.
 Successful deletion clears the selected note cache and refreshes both note lists,
 returning to the current collection with its remaining notes or empty state.
-Search and derived tag navigation are not present yet.
+Search and derived tag navigation refresh from persisted data after deletion.
 
 Direct access to the supplied Figma file remains blocked by an MCP edit-access
 denial. The user subsequently supplied dark, light and narrow light confirmation
@@ -111,6 +111,45 @@ responsive text wrapping. Nuxt UI retains the accessible title/description, focu
 trap, initial Cancel focus, Escape dismissal and trigger focus restoration.
 Browser captures verify the rendered light/dark dialog and a 375px mobile viewport;
 exact Figma node measurements remain unavailable.
+
+## Tags and scoped search
+
+`GET /api/notes` accepts optional `archived=true|false` (default false), `q`
+(default empty), and `tag` (default empty). `q` matches saved title, plain-text
+content, or any tag by case-insensitive literal substring; PostgreSQL `strpos`
+avoids wildcard interpretation of `%`, `_`, and backslash. `tag` matches a complete
+tag name case-insensitively. If both are supplied, both predicates apply (AND).
+All predicates retain owner/archive scope and `lastEdited DESC, id DESC` ordering.
+Empty `q` imposes no search predicate; meaningful whitespace is not trimmed.
+Repeated/non-string filters, unknown archive values, queries over 100,000 units,
+and tag filters over 50 units return `422 { error: { code: 'VALIDATION' } }`.
+
+`GET /api/notes/tags` returns `{ tags: string[] }`, derived from the caller's saved
+active **and archived** notes. Case variants collapse with PostgreSQL `lower`,
+using the database-minimum spelling as a deterministic display representative,
+sorted by folded tag name. There is no tag entity, mutation API, or standalone tag
+state, and no schema migration is required: the existing PostgreSQL text array
+contains all needed data. Both GET routes require a verified owner and are no-store.
+
+Browser URLs use `q`, `tag`, `view=archived`, and `panel=search|tags` explicitly.
+Search submits with Enter, replaces any tag filter, and stays in the current
+active/archive scope. Clicking a tag clears search and opens only active notes.
+All Notes/Archived Notes navigation clears search and tag filters. Opening a note
+and returning preserves the current list's filters. Search uses saved data only;
+unsaved editor changes remain protected by the existing discard confirmation.
+The mobile/tablet bottom navigation opens Tags or a scoped Search screen; desktop
+uses the sidebar and header input. Empty-query guidance, no-match, archived-only
+tag, empty collection/tag list, loading, and retryable errors are distinct states.
+Successful saves, archive/restore, and deletion refresh derived tags and results.
+Logout clears the derived-tag cache.
+
+For this slice, the user supplied accessible Figma copy `8VNP6vgCT8aUeegpPUXLmc`.
+Design context and screenshots were inspected for desktop tag `2173:21657`,
+desktop search `2173:23295`, tablet tags `2231:9941`, mobile tags `2231:42881`,
+mobile search `2231:43568`, and dark tablet empty search `2254:16413`.
+The supplied local tag/search/back/plus/chevron icons, fonts and Nuxt UI controls
+are reused. Browser screenshots check responsive rendering; unrelated existing
+shell differences are retained, not claimed as pixel-exact matches.
 
 ## Validation
 

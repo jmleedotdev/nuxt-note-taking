@@ -92,8 +92,24 @@ function createNotesService() {
         error: current ? 'NOTE_VERSION_CONFLICT' : 'NOTE_NOT_FOUND',
       } as const
     },
-    async list(ownerId: string, archived = false) {
-      const rows = await db.select().from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.isArchived, archived))).orderBy(desc(notes.lastEdited), desc(notes.id))
+    async tags(ownerId: string) {
+      const rows = await db.select({ tag: sql<string>`min(tag)` }).from(notes).crossJoin(sql`unnest(${notes.tags}) AS tag`).where(eq(notes.ownerId, ownerId)).groupBy(sql`lower(tag)`).orderBy(sql`lower(tag)`)
+
+      return rows.map(row => row.tag)
+    },
+    async list(ownerId: string, archived = false, query = '', tag = '') {
+      // strpos is a literal substring operation: %, _ and backslash have no wildcard meaning.
+      const matches = query
+        ? sql`(
+        strpos(lower(${notes.title}), lower(${query})) > 0
+        OR strpos(lower(${notes.content}), lower(${query})) > 0
+        OR EXISTS (SELECT 1 FROM unnest(${notes.tags}) AS tag WHERE strpos(lower(tag), lower(${query})) > 0)
+      )`
+        : undefined
+      const tagged = tag
+        ? sql`EXISTS (SELECT 1 FROM unnest(${notes.tags}) AS tag WHERE lower(tag) = lower(${tag}))`
+        : undefined
+      const rows = await db.select().from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.isArchived, archived), matches, tagged)).orderBy(desc(notes.lastEdited), desc(notes.id))
 
       return rows.map(toNote)
     },

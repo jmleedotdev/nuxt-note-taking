@@ -5,7 +5,20 @@ export function useNotes() {
   const request = useRequestFetch()
 
   return {
-    list: (archived = false) => request<{ notes: Note[] }>(archived ? '/api/notes?archived=true' : '/api/notes'),
+    list: (archived = false, q = '', tag = '') => request<{ notes: Note[] }>('/api/notes', {
+      query: {
+        ...(archived
+          ? { archived: 'true' }
+          : {}),
+        ...(q
+          ? { q }
+          : {}),
+        ...(tag
+          ? { tag }
+          : {}),
+      },
+    }),
+    tags: () => request<{ tags: string[] }>('/api/notes/tags'),
     archive: (id: string, version: number) => $fetch<Note>(`/api/notes/${encodeURIComponent(id)}/archive`, {
       method: 'POST',
       body: { version },
