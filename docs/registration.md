@@ -1,5 +1,9 @@
 # Registration slice (#2)
 
+This is the current registration contract for [issue #2](https://github.com/jmleedotdev/nuxt-note-taking/issues/2).
+The superseding decisions below replace the original password, hosted-mail, and
+confirmation-screen requirements; they are not proposals to reopen those choices.
+
 ## Run locally
 
 Requires Node 22+, pnpm, and Docker/Compose. Any valid email address is accepted;
@@ -50,6 +54,12 @@ existing table names or column types.
 
 ## Tests and isolation
 
+`server/registration/` contains runtime application code: registration configuration,
+auth integration, password hashing, abuse controls, HTTP admission, and mail sending.
+It is not test scaffolding. `test/fixtures/` provides test-only database setup and
+mail capture/failure controls; the HTTP fixture imports the runtime service rather
+than replacing registration behavior.
+
 The app and test harness both use **`DATABASE_URL`**; environment selection is
 explicit rather than encoded in separate variable names.
 
@@ -65,6 +75,9 @@ explicit rather than encoded in separate variable names.
 - The example can use the local Compose cluster, but does not require it. Use a
   separate test cluster/role when you need stronger separation from development.
 
+The runner (`scripts/test-database.ts`) requires an already running PostgreSQL
+server; it does not start PostgreSQL or Docker. Use the Compose startup in
+[Run locally](#run-locally) or supply your own test server as described above.
 The harness creates a cryptographically random `notes_test_*` database, applies
 actual migrations, and passes its URL to the test process as `DATABASE_URL`,
 overriding the cluster connection for that process. It drops only that generated
@@ -174,6 +187,10 @@ research describes the earlier policy and is not the current password contract.
   synthetic accounts or provide recovery in a later slice. No stored credential
   is silently rewritten. A rollout to existing real users would require a
   deliberate migration/recovery plan.
+
+Password-hashing hardening remains a separate known follow-up; the hash description
+above records current behavior, not a production-readiness claim or an implicit
+change to the implementation.
 
 HTTP tests cover 7/8/128/129-character boundaries, letters/digits/symbols,
 rejection of spaces/control/non-ASCII input, all four numeric abuse ceilings,
