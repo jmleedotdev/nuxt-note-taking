@@ -138,7 +138,7 @@ async function submit() {
         <UIcon name="i-app-chevron-right" class="ml-auto size-3" />
       </UButton>
 
-      <UButton to="/?panel=settings&setting=password" icon="i-app-lock" color="neutral" variant="ghost" block class="justify-start" :class="section === 'password' && 'xl:bg-neutral-100 dark:xl:bg-neutral-800'" :aria-current="section === 'password' ? 'page' : undefined" :disabled="appearance.saving.value">
+      <UButton to="/?panel=settings&setting=password" icon="i-app-lock" color="neutral" variant="ghost" block class="justify-start" :class="section === 'password' && 'xl:bg-neutral-100 dark:xl:bg-neutral-800'" :aria-current="section === 'password' ? 'page' : undefined" :ui="{ leadingIcon: section === 'password' ? 'dark:text-blue-500' : undefined }" :disabled="appearance.saving.value">
         Change Password
         <UIcon name="i-app-chevron-right" class="ml-auto size-3" />
       </UButton>
@@ -151,8 +151,8 @@ async function submit() {
     </nav>
 
     <section class="min-w-0 flex-1 xl:p-8" :class="!explicitSection && 'hidden xl:block'">
-      <div class="max-w-132">
-        <UButton to="/?panel=settings" icon="i-app-arrow-left" color="neutral" variant="ghost" class="mb-4 px-0 py-0 xl:hidden" :disabled="appearance.saving.value">
+      <div :class="section === 'password' ? 'xl:max-w-132' : 'max-w-132'">
+        <UButton to="/?panel=settings" icon="i-app-arrow-left" color="neutral" variant="ghost" class="px-0 py-0 xl:hidden" :class="section === 'password' ? 'mb-3' : 'mb-4'" :disabled="appearance.saving.value">
           Settings
         </UButton>
 

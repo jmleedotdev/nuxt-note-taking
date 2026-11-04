@@ -90,6 +90,31 @@ Playwright covers the settings-to-fresh-login journey on desktop, tablet, and
 failure, reveal/autocomplete controls, keyboard submission, cross-device/copied
 cookie rejection, light/dark screenshots, and overflow checks.
 
-Figma metadata access to the supplied file was denied for this task. The form uses
-the established settings shell, Nuxt UI, supplied local icons/fonts, and inline
-Tailwind. Exact password-settings frame parity remains **unverified**.
+## Password-settings visual follow-up
+
+Figma access was initially denied but later restored. The following frames in
+file `GDJWyTOiuLIfNUQBSueHnL` were inspected through one screenshot call each:
+
+- [Desktop light, 1440 × 900](https://www.figma.com/design/GDJWyTOiuLIfNUQBSueHnL/note-taking-web-app?node-id=2180-27348).
+- [Mobile light, 375 × 812](https://www.figma.com/design/GDJWyTOiuLIfNUQBSueHnL/note-taking-web-app?node-id=2236-10589).
+- [Tablet light, 768 × 1024](https://www.figma.com/design/GDJWyTOiuLIfNUQBSueHnL/note-taking-web-app?node-id=2236-10396).
+- [Desktop dark, 1440 × 900](https://www.figma.com/design/GDJWyTOiuLIfNUQBSueHnL/note-taking-web-app?node-id=2180-27934).
+
+The form uses the reference's “Old Password” label, 44px inputs, below-field info
+icon/“At least 8 characters” help, right-aligned save action, and dark input
+colors. It fills the available mobile/tablet content width (343px/704px at the
+reference sizes) and is 528px wide on desktop. The selected password-section lock
+uses the supplied icon with blue emphasis in dark mode. Nuxt UI's help slot keeps
+the hint associated with the new-password input for assistive technology; shared
+validation still enforces the full unchanged 8–128 printable ASCII/no-spaces
+policy.
+
+The all-device fresh-login warning is intentionally retained between the fields
+and save action, moving the button lower than the reference. Existing shared
+shell logout controls, navigation, account details, and actual user tags remain
+unchanged; this is a password-form alignment, not a pixel-identical replacement
+of the whole application shell. Playwright checks rendered widths/input height,
+accessible help and reveal labels, light/dark empty-state screenshots, and the
+existing real password-change journey at all three reference viewport sizes.
+Screenshots are inspected locally and saved only to ignored test output. No
+additional Figma calls are needed for this follow-up.

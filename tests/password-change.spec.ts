@@ -3,7 +3,10 @@ import { expect, test } from '@nuxt/test-utils/playwright'
 
 test('settings password change preserves failure feedback and requires fresh login on every device', async ({ page, goto, browser }, testInfo) => {
   await goto('/login', { waitUntil: 'hydration' })
-  await page.setViewportSize({ width: { desktop: 1440, tablet: 768, mobile: 375 }[testInfo.project.name]!, height: 900 })
+  await page.setViewportSize({
+    width: { desktop: 1440, tablet: 768, mobile: 375 }[testInfo.project.name]!,
+    height: { desktop: 900, tablet: 1024, mobile: 812 }[testInfo.project.name]!,
+  })
   await page.setExtraHTTPHeaders({ 'x-real-ip': `198.19.21.${{ desktop: 1, tablet: 2, mobile: 3 }[testInfo.project.name]}` })
 
   const email = `change-browser-${randomUUID()}@example.test`
@@ -41,11 +44,37 @@ test('settings password change preserves failure feedback and requires fresh log
     await page.getByRole('link', { name: 'Change Password', exact: true }).filter({ visible: true }).click()
     await expect(page.getByRole('heading', { name: 'Change Password', exact: true })).toBeVisible()
 
-    const current = page.getByLabel('Current Password', { exact: true })
+    const current = page.getByLabel('Old Password', { exact: true })
     const replacement = page.getByLabel('New Password', { exact: true })
     const confirmation = page.getByLabel('Confirm New Password', { exact: true })
     const save = page.getByRole('button', { name: 'Save Password', exact: true })
 
+    await expect(current).toBeVisible()
+
+    const input = (await current.boundingBox())!
+
+    expect(input.width).toBeCloseTo({ desktop: 528, tablet: 704, mobile: 343 }[testInfo.project.name]!, 0)
+    expect(input.height).toBeCloseTo(44, 0)
+    await expect(replacement).toHaveAccessibleDescription('At least 8 characters')
+
+    const hint = page.getByText('At least 8 characters', { exact: true })
+    const hintBox = (await hint.boundingBox())!
+    const replacementBox = (await replacement.boundingBox())!
+
+    expect(hintBox.y).toBeGreaterThanOrEqual(replacementBox.y + replacementBox.height)
+    await expect(page.getByText('After saving, you’ll need to log in again on every device, including this one.', { exact: true })).toBeVisible()
+    await page.screenshot({
+      path: testInfo.outputPath('change-password-empty-light.png'),
+      fullPage: true,
+    })
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await expect(page.locator('html')).toHaveClass(/dark/)
+    await expect(current).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await page.screenshot({
+      path: testInfo.outputPath('change-password-empty-dark.png'),
+      fullPage: true,
+    })
+    await page.emulateMedia({ colorScheme: 'light' })
     await expect(current).toHaveAttribute('autocomplete', 'current-password')
     await expect(replacement).toHaveAttribute('autocomplete', 'new-password')
     await current.fill('Incorrect1!')
@@ -55,12 +84,12 @@ test('settings password change preserves failure feedback and requires fresh log
     await expect(page.getByText('Passwords must match.', { exact: true })).toBeVisible()
     await confirmation.fill('Replacement2!')
     await save.click()
-    await expect(page.getByRole('alert')).toContainText('Current password is incorrect')
+    await expect(page.getByRole('alert')).toContainText('Old password is incorrect')
     await expect(replacement).toHaveValue('Replacement2!')
     await current.fill('Original1!')
-    await page.getByRole('button', { name: 'Show current password', exact: true }).click()
+    await page.getByRole('button', { name: 'Show old password', exact: true }).click()
     await expect(current).toHaveAttribute('type', 'text')
-    await page.getByRole('button', { name: 'Hide current password', exact: true }).click()
+    await page.getByRole('button', { name: 'Hide old password', exact: true }).click()
 
     await page.route('**/api/password/change', route => route.fulfill({
       status: 503,
