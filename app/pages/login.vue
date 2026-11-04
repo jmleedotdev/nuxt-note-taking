@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { z } from 'zod'
-import { registrationSchema, resendSchema } from '#shared/schemas/registration'
+import { loginSchema, resendSchema } from '#shared/schemas/registration'
 
 useHead({ title: 'Login' })
 
@@ -13,7 +13,7 @@ const authentication = useAuthentication()
 const registration = useRegistration()
 const form = useTemplateRef('form')
 
-async function submit(event: FormSubmitEvent<z.output<typeof registrationSchema>>) {
+async function submit(event: FormSubmitEvent<z.output<typeof loginSchema>>) {
   pending.value = true
   message.value = ''
 
@@ -79,7 +79,7 @@ async function resend() {
       Email verified. You can now log in.
     </p>
 
-    <UForm ref="form" :schema="registrationSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
+    <UForm ref="form" :schema="loginSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
       <UFormField name="email" label="Email Address">
         <UInput v-model="state.email" type="email" autocomplete="email" placeholder="email@example.com" class="w-full" size="xl" :disabled="pending" />
       </UFormField>

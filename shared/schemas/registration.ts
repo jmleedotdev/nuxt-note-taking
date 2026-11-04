@@ -10,4 +10,9 @@ export const emailSchema = z.email('Enter a valid email address.').max(254).tran
 
 export const registrationSchema = z.object({ email: emailSchema, password: passwordSchema })
 
+export const loginSchema = z.object({
+  email: emailSchema,
+  password: z.string().refine(value => passwordSchema.safeParse(value).success, 'Enter a password.'),
+})
+
 export const resendSchema = z.object({ email: emailSchema })

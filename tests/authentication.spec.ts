@@ -58,6 +58,17 @@ test('signup, unverified recovery, verification, login, SSR shell, and logout', 
   expect(rejected.status()).toBe(401)
 })
 
+test('login asks for a password without listing signup requirements', async ({ page, goto }) => {
+  await goto('/login', { waitUntil: 'hydration' })
+  await page.getByLabel('Email Address', { exact: true }).fill('login@example.test')
+  await page.getByRole('button', { name: 'Login', exact: true }).click()
+  await expect(page.getByText('Enter a password.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Use 8–128 characters:', { exact: false })).toHaveCount(0)
+  await page.getByLabel('Password', { exact: true }).fill('short')
+  await page.getByRole('button', { name: 'Login', exact: true }).click()
+  await expect(page.getByText('Enter a password.', { exact: true })).toBeVisible()
+})
+
 test('invalid verification recovers through login with generic resend and visible cooldown', async ({ page, goto }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await goto('/api/registration/verify?token=invalid', { waitUntil: 'hydration' })
