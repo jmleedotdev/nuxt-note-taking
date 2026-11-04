@@ -25,7 +25,8 @@ export default defineEventHandler(async (event) => {
   }
 
   if (waiters) {
-    const rows = await client`
+    const connection = gates.get(email) ?? client
+    const rows = await connection`
       SELECT count(*)::int AS count FROM pg_locks
       WHERE locktype = 'advisory' AND NOT granted
       AND objid::bigint = (hashtextextended(${`credential:${email}`}, 0) & 4294967295)

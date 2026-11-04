@@ -13,9 +13,9 @@ function createAuthService() {
   const config = authConfig()
   const { client, db } = createDatabase()
   const sender = createMailSender(config)
-  // A separate pool prevents lock-waiting logins from exhausting the adapter pool
-  // needed by the lock holder to verify credentials and insert its session.
-  const loginLocks = postgres(config.DATABASE_URL, { max: 5 })
+  // All credential-lock waiters use this separate pool. They must never exhaust
+  // the adapter pool needed by the login lock holder to finish creating a session.
+  const credentialTransactions = postgres(config.DATABASE_URL, { max: 5 })
   const auth = betterAuth({
     baseURL: config.APP_URL,
     secret: config.APP_AUTH_SECRET,
@@ -68,10 +68,10 @@ function createAuthService() {
     client,
     sender,
     config,
-    recovery: createPasswordRecovery({ client, config, sender }),
+    recovery: createPasswordRecovery({ client: credentialTransactions, config, sender }),
     cookies: getCookies(auth.options),
     async login(email: string, password: string, headers: Headers) {
-      return loginLocks.begin(async (sql) => {
+      return credentialTransactions.begin(async (sql) => {
         await sql`SELECT pg_advisory_xact_lock(hashtextextended(${credentialLockKey(email)}, 0))`
 
         return auth.api.signInEmail({

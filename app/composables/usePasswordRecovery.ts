@@ -1,4 +1,6 @@
 export function usePasswordRecovery() {
+  const authentication = useAuthentication()
+
   async function request(email: string) {
     return $fetch.raw<{ resendAfter?: number, retryAfter?: number }>('/api/password/forgot', {
       method: 'POST',
@@ -14,10 +16,8 @@ export function usePasswordRecovery() {
       ignoreResponseError: true,
     })
 
-    if (response.status === 200) {
-      useAuthentication().session.value = null
-      useAppearance().leaveAccount()
-    }
+    if (response.status === 200)
+      authentication.clearLocalSession()
 
     return response.status
   }

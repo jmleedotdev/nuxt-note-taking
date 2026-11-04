@@ -45,11 +45,21 @@ export function useAuthentication() {
     return response.status
   }
 
-  async function logout() {
-    await $fetch('/api/logout', { method: 'POST', body: {} })
+  function clearLocalSession() {
     session.value = null
     appearance.leaveAccount()
   }
 
-  return { session, refresh, login, logout }
+  async function logout() {
+    await $fetch('/api/logout', { method: 'POST', body: {} })
+    clearLocalSession()
+  }
+
+  return {
+    session,
+    refresh,
+    login,
+    logout,
+    clearLocalSession,
+  }
 }

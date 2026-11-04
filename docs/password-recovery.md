@@ -87,9 +87,9 @@ and hold the same credential lock in its transaction.
 Login holds the same lock across Better Auth's credential check and session
 insertion. A login with the old password either completes before reset (and its
 session is deleted), or checks the new credential afterward and fails. A genuinely
-fresh login with the new password afterward is allowed. Login locks use a separate
-bounded PostgreSQL pool (maximum five connections): waiting lock holders must not
-exhaust the adapter pool needed to complete the active login. Include this extra
+fresh login with the new password afterward is allowed. All credential-lock transactions (login, issuance, and redemption) use a separate
+bounded PostgreSQL pool (maximum five connections): recovery lock waiters must not
+exhaust the adapter pool needed to complete an active login. Include this extra
 pool in deployment connection budgeting. No secondary session store, cookie cache,
 or refresh path is enabled; copied cookies, other devices, HTTP guards, and SSR
 all check the authoritative database. Already admitted in-flight reads are not
@@ -140,7 +140,8 @@ termination can lose a tracked submission. Keep the existing local inbox private
   cover public equivalence under slow/failed transport, fixed-window thresholds,
   real thirty-second cooldown expiry, thirty-minute authorization boundaries,
   ASCII/password/confirmation boundaries, supersession/reuse, concurrent
-  issue/redeem, lock-wait expiry, rollback, rotated-token account budgets, copied
+  issue/redeem, lock-wait expiry, rollback, transition-pool saturation without
+  blocking authoritative session reads, rotated-token account budgets, copied
   cookies, other devices, SSR/no-store paths, CSRF, and blocked library routes.
   Test-only fixtures set clock/failure/lock preconditions; they are never mounted
   in ordinary application builds.

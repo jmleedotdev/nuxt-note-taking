@@ -403,6 +403,52 @@ describe('password recovery HTTP/PostgreSQL contract', async () => {
     expect((await session(cookie)).status).toBe(401)
   })
 
+  it('keeps authoritative session reads available when reset lock waiters saturate the transition pool', async () => {
+    const observer = await account()
+    const cookie = cookies(await post('/api/login', { email: observer, password }))
+    const first = await account()
+    const second = await account()
+    const tokens = [await requestReset(first), await requestReset(second)]
+
+    for (const email of [first, second]) {
+      await $fetch('/__test/recovery-state', {
+        method: 'POST',
+        body: { email, gate: true },
+      })
+    }
+
+    const pending = tokens.flatMap(token => Array.from({ length: 5 }, () => redeem(token)))
+
+    try {
+      await expect.poll(async () => {
+        const counts = await Promise.all([first, second].map(email => $fetch<{ waiters: number }>('/__test/recovery-state', {
+          method: 'POST',
+          body: { email, waiters: true },
+        })))
+
+        return counts.reduce((sum, count) => sum + count.waiters, 0)
+      }).toBeGreaterThanOrEqual(5)
+      // Let the remaining bounded password hashes reach their lock waits too.
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      const response = await fetch(url('/api/session'), {
+        headers: { cookie },
+        signal: AbortSignal.timeout(2000),
+      })
+
+      expect(response.status).toBe(200)
+    } finally {
+      for (const email of [first, second]) {
+        await $fetch('/__test/recovery-state', {
+          method: 'POST',
+          body: { email, gate: false },
+        })
+      }
+
+      await Promise.all(pending)
+    }
+  })
+
   it('does not let an old-password login racing reset leave a valid session', async () => {
     const email = await account()
     const token = await requestReset(email)
