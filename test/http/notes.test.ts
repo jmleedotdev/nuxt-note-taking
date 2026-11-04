@@ -8,13 +8,15 @@ const origin = 'http://localhost:3000'
 let ip = 120
 
 function post(path: string, body: unknown, cookie = '', method = 'POST') {
+  const address = ip++
+
   return fetch(url(path), {
     method,
     headers: {
       'content-type': 'application/json',
       origin,
       cookie,
-      'x-real-ip': `192.0.2.${ip++}`,
+      'x-real-ip': `198.19.${Math.floor(address / 256)}.${address % 256}`,
     },
     body: JSON.stringify(body),
   })
