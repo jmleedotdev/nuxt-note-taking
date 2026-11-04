@@ -84,7 +84,7 @@ function submit(event: FormSubmitEvent<z.output<typeof forgotPasswordSchema>>) {
         Haven’t received it? Check your spam folder, then request another link. Email submission does not guarantee delivery.
       </p>
 
-      <UButton type="button" block size="xl" :loading="pending" :disabled="pending || remaining > 0" class="justify-center bg-blue-500 text-neutral-0 hover:bg-blue-700" @click="request(state.email)">
+      <UButton type="button" block size="xl" :loading="pending" :disabled="pending || remaining > 0" @click="request(state.email)">
         {{ remaining > 0 ? `Send again (${remaining}s)` : 'Send again' }}
       </UButton>
 
@@ -95,10 +95,10 @@ function submit(event: FormSubmitEvent<z.output<typeof forgotPasswordSchema>>) {
 
     <UForm v-else :schema="forgotPasswordSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
       <UFormField name="email" label="Email Address">
-        <UInput v-model="state.email" type="email" autocomplete="email" placeholder="email@example.com" class="w-full" size="xl" :disabled="pending" />
+        <UInput v-model="state.email" type="email" autocomplete="email" placeholder="email@example.com" class="w-full" :disabled="pending" />
       </UFormField>
 
-      <UButton type="submit" block size="xl" :loading="pending" :disabled="pending || remaining > 0" class="justify-center bg-blue-500 font-semibold text-neutral-0 hover:bg-blue-700">
+      <UButton type="submit" block size="xl" :loading="pending" :disabled="pending || remaining > 0">
         {{ remaining > 0 ? `Try again (${remaining}s)` : 'Send reset link' }}
       </UButton>
     </UForm>

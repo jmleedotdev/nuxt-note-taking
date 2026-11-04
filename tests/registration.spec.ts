@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { expect, test } from '@nuxt/test-utils/playwright'
+import { expectKeyboardOrder, togglePasswordWithKeyboard } from './helpers/keyboard'
 
 test('signup rejects spaces, preserves email, and accepts an ASCII password', async ({ page, goto }, testInfo) => {
   test.setTimeout(60000)
@@ -67,6 +68,14 @@ test('signup shows the minimum-length hint and toggles password visibility witho
   const password = page.getByLabel('Password', { exact: true })
   const show = page.getByRole('button', { name: 'Show password', exact: true })
 
+  await expectKeyboardOrder(page, [
+    page.getByLabel('Email Address', { exact: true }),
+    password,
+    show,
+    page.getByRole('button', { name: 'Sign up', exact: true }),
+    page.getByRole('link', { name: 'Login', exact: true }),
+  ])
+  await togglePasswordWithKeyboard(page, password, 'password')
   await expect(password).toHaveAccessibleDescription('At least 8 characters')
   await expect(show.locator('[data-slot="leadingIcon"]')).toHaveCSS('color', 'rgb(153, 160, 174)')
   await expect(show.locator('[data-slot="leadingIcon"]')).toHaveCSS('mask-image', /url\(/)

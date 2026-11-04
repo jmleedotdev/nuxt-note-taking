@@ -4,7 +4,7 @@
 - Approved scope: [#28](https://github.com/jmleedotdev/nuxt-note-taking/issues/28). This report does not edit or close that spec.
 - Before-change application source: `0d39e7d82afd2b4ab4c996448ce62628e8c7dcf2`.
 - Captured/inspected: 2026-11-04, Chromium, local Inter font, scale factor 1.
-- Deliverables: this report, [linked evidence index](evidence-index.md), 132 current-app PNGs, browser observations, and an opt-in [capture journey](../../../tests/design-audit.spec.ts).
+- Deliverables: this report, [evidence index](evidence-index.md), browser observations, and an opt-in [capture journey](../../../tests/design-audit.spec.ts). The 132 current-app PNGs were captured and inspected but are now retained outside Git as review artifacts.
 - **Design privacy:** Figma exports and downloaded design metadata are private, stored outside this repository, and must not be committed or published. The evidence index links to access-controlled Figma references rather than exported design images.
 - **No application UI, database schema, HTTP contract, authentication, ownership, explicit-save, archive, or deletion behavior changed.** This is a baseline, not a pixel-parity or accessibility certification.
 
@@ -48,7 +48,7 @@ The existing Nuxt Playwright fixture builds the real app with test-only mail/not
 
 The final capture run completed six journeys: desktop/tablet/mobile × light/dark. It uses reference-size viewports **1440×900, 768×1024, 375×812**, plus new-editor captures at existing project sizes **1280×720, 1099×1024, 549×812**. Full-page image height can exceed viewport height. Media color preference is light/dark with the account's default System theme, not a fabricated DOM theme. Every capture checks the resulting html theme class and waits for fonts. Motion is reduced and finite screenshot animations are completed to avoid recording modal/toast entrance frames.
 
-Each of the six sets contains: login, login keyboard focus, signup, forgot password, valid reset form, invalid reset recovery, verification-required check-email, active list, active editor, new editor, project-width new editor, archived list, archived read-only note, settings navigation, color/font/password settings, Delete/Archive/Discard confirmations, archive success toast, and persistent conflicting-save recovery. [Open the evidence index](evidence-index.md) for current-app PNGs and access-controlled Figma reference links.
+Each of the six sets contains: login, login keyboard focus, signup, forgot password, valid reset form, invalid reset recovery, verification-required check-email, active list, active editor, new editor, project-width new editor, archived list, archived read-only note, settings navigation, color/font/password settings, Delete/Archive/Discard confirmations, archive success toast, and persistent conflicting-save recovery. [Open the evidence index](evidence-index.md) for generated PNG filenames and access-controlled Figma reference links. Screenshots are not committed; use an external `DESIGN_AUDIT_OUTPUT` directory.
 
 `observations.json` in each set records viewport, font, current focus, horizontal-overflow measurement and the observed login traversal. No captured state reported horizontal overflow. This measurement does **not** prove action visibility, sufficient contrast, focus containment, or absence of vertical occlusion. In particular the old lower editor actions can require scrolling on mobile; the approved toolbar change addresses their placement.
 
@@ -76,7 +76,7 @@ Visual review used private side-by-side contact sheets of full-resolution export
 
 ## Findings register
 
-Classification is explicit for every finding. **Approved change** means already in #28, not implemented here. **Additional proposal** needs owner approval. **Intentional difference** must survive implementation. **Reference gap** is an evidence limitation, not permission to redesign. Viewport abbreviations D/T/M refer to the reference sizes above; L/Dk mean light/dark. Each screen name links to six rendered captures and available reference pairs.
+Classification is explicit for every finding. **Approved change** means already in #28, not implemented here. **Additional proposal** needs owner approval. **Intentional difference** must survive implementation. **Reference gap** is an evidence limitation, not permission to redesign. Viewport abbreviations D/T/M refer to the reference sizes above; L/Dk mean light/dark. Each screen name links to generated capture filenames and available reference pairs.
 
 | ID / classification | Screen/state; viewport/theme | Reference | Observation and evidence |
 |---|---|---|---|
@@ -126,7 +126,7 @@ DESIGN_AUDIT_OUTPUT=/tmp/notes-design-audit \
 pnpm exec tsx scripts/test-database.ts exec playwright test tests/design-audit.spec.ts --reporter=line
 ```
 
-Requires the existing disposable local/test PostgreSQL cluster configured by `.env.test.local` (or an explicitly supplied test `DATABASE_URL`) and installed Playwright Chromium. Do not point the runner at a developer/production cluster. Normal regression runs skip the capture-only journeys unless opted in. Use a new output directory for after-change evidence; do not overwrite this committed baseline.
+Requires the existing disposable local/test PostgreSQL cluster configured by `.env.test.local` (or an explicitly supplied test `DATABASE_URL`) and installed Playwright Chromium. Do not point the runner at a developer/production cluster. Normal regression runs skip the capture-only journeys unless opted in. Keep screenshots outside Git, using a new external output directory for each capture. To reproduce this historical before-change baseline, run the capture journey at audit commit `e2d119e` in a separate checkout; running the current branch captures the current UI instead. The written findings and browser observations remain committed.
 
 Not completed by this audit: comprehensive accessibility verification, contrast measurements, screen-reader testing, full forward/reverse navigation for all forms, modal trapping/return verification, all loading/error/success/removed-note states in both themes, font preference variants beyond Inter, multi-note/long-content density, animation behavior, other browser engines, or precise breakpoint-edge checks beyond the captured widths. Existing regression tests may cover portions of these behaviors, but screenshots alone do not certify them. Exact search/tag reference comparison is outside this bounded screen baseline; existing navigation remains unchanged.
 

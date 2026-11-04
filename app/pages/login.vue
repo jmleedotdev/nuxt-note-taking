@@ -65,17 +65,13 @@ async function submit(event: FormSubmitEvent<z.output<typeof loginSchema>>) {
 
     <UForm :schema="loginSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
       <UFormField name="email" label="Email Address">
-        <UInput v-model="state.email" type="email" autocomplete="email" placeholder="email@example.com" class="w-full" size="xl" :disabled="pending" />
+        <UInput v-model="state.email" type="email" autocomplete="email" placeholder="email@example.com" class="w-full" :disabled="pending" />
       </UFormField>
 
-      <NuxtLink to="/forgot-password" class="block text-right text-sm text-neutral-600 underline dark:text-neutral-300">
-        Forgot password?
-      </NuxtLink>
-
       <UFormField name="password" label="Password">
-        <UInput v-model="state.password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" class="w-full" size="xl" :disabled="pending">
+        <UInput v-model="state.password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" class="w-full" :disabled="pending">
           <template #trailing>
-            <UButton type="button" color="neutral" variant="link" class="text-neutral-500 dark:text-neutral-400" :icon="showPassword ? 'i-app-hide-password' : 'i-app-show-password'" :aria-label="showPassword ? 'Hide password' : 'Show password'" :aria-pressed="showPassword" :disabled="pending" @click="showPassword = !showPassword" />
+            <UButton type="button" color="neutral" variant="link" :icon="showPassword ? 'i-app-hide-password' : 'i-app-show-password'" :aria-label="showPassword ? 'Hide password' : 'Show password'" :aria-pressed="showPassword" :disabled="pending" @click="showPassword = !showPassword" />
           </template>
         </UInput>
       </UFormField>
@@ -84,10 +80,14 @@ async function submit(event: FormSubmitEvent<z.output<typeof loginSchema>>) {
         {{ message }}
       </p>
 
-      <UButton type="submit" block size="xl" :loading="pending" class="justify-center bg-blue-500 font-semibold text-neutral-0 hover:bg-blue-700">
+      <UButton type="submit" block size="xl" :loading="pending">
         Login
       </UButton>
     </UForm>
+
+    <NuxtLink to="/forgot-password" class="mt-4 block text-right text-sm text-neutral-600 underline dark:text-neutral-300">
+      Forgot password?
+    </NuxtLink>
 
     <p class="mt-6 border-t border-neutral-200 pt-6 text-center text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
       No account yet? <NuxtLink to="/signup" class="font-medium text-neutral-950 underline dark:text-neutral-0">Sign Up</NuxtLink>

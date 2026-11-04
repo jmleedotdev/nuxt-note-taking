@@ -82,9 +82,9 @@ async function submit(event: FormSubmitEvent<z.output<typeof resetPasswordSchema
 
       <UForm :schema="resetPasswordSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
         <UFormField v-for="field in fields" :key="field.name" :name="field.name" :label="field.label">
-          <UInput v-model="state[field.name]" :type="showPassword[field.name] ? 'text' : 'password'" autocomplete="new-password" class="w-full" size="xl" :disabled="pending">
+          <UInput v-model="state[field.name]" :type="showPassword[field.name] ? 'text' : 'password'" autocomplete="new-password" class="w-full" :disabled="pending">
             <template #trailing>
-              <UButton type="button" color="neutral" variant="link" class="text-neutral-500 dark:text-neutral-400" :icon="showPassword[field.name] ? 'i-app-hide-password' : 'i-app-show-password'" :aria-label="`${showPassword[field.name] ? 'Hide' : 'Show'} ${field.label.toLowerCase()}`" :aria-pressed="showPassword[field.name]" :disabled="pending" @click="showPassword[field.name] = !showPassword[field.name]" />
+              <UButton type="button" color="neutral" variant="link" :icon="showPassword[field.name] ? 'i-app-hide-password' : 'i-app-show-password'" :aria-label="`${showPassword[field.name] ? 'Hide' : 'Show'} ${field.label.toLowerCase()}`" :aria-pressed="showPassword[field.name]" :disabled="pending" @click="showPassword[field.name] = !showPassword[field.name]" />
             </template>
           </UInput>
         </UFormField>
@@ -93,7 +93,7 @@ async function submit(event: FormSubmitEvent<z.output<typeof resetPasswordSchema
           {{ message }}
         </p>
 
-        <UButton type="submit" block size="xl" :loading="pending" class="justify-center bg-blue-500 font-semibold text-neutral-0 hover:bg-blue-700">
+        <UButton type="submit" block size="xl" :loading="pending">
           Reset password
         </UButton>
       </UForm>
