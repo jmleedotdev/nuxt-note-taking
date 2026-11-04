@@ -20,7 +20,7 @@ export function authClientIP(event: H3Event, service: Service) {
   return peer
 }
 
-export async function consumeAuthLimit(service: Service, ip: string, subject?: string, purpose: 'registration' | 'login' | 'forgot' | 'reset' = 'registration') {
+export async function consumeAuthLimit(service: Service, ip: string, subject?: string, purpose: 'registration' | 'login' | 'forgot' | 'reset' | 'change' = 'registration') {
   const digest = (value: string) => createHmac('sha256', service.config.APP_AUTH_SECRET).update(value).digest('hex')
   const rules = [
     { key: 'global', max: 500, seconds: 3600 },

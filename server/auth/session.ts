@@ -7,6 +7,25 @@ export function forwardAuthCookies(event: H3Event, response: Response) {
   }
 }
 
+export function clearAuthCookies(event: H3Event) {
+  for (const cookie of Object.values(authService().cookies)) {
+    const attributes = {
+      path: cookie.attributes.path,
+      domain: cookie.attributes.domain,
+      secure: cookie.attributes.secure,
+      httpOnly: true,
+      sameSite: 'lax' as const,
+    }
+
+    deleteCookie(event, cookie.name, attributes)
+
+    for (const name of Object.keys(parseCookies(event))) {
+      if (name.startsWith(`${cookie.name}.`))
+        deleteCookie(event, name, attributes)
+    }
+  }
+}
+
 export async function requireVerifiedSession(event: H3Event): Promise<AuthenticatedSession> {
   setHeader(event, 'Cache-Control', 'no-store')
 

@@ -2,6 +2,7 @@ import { resetPasswordSchema } from '../../../shared/schemas/password-recovery'
 import { authInput, checkAuthOrigin } from '../../auth/http'
 import { authClientIP, consumeAuthLimit } from '../../auth/limits'
 import { authService } from '../../auth/service'
+import { clearAuthCookies } from '../../auth/session'
 
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
@@ -42,23 +43,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Use the pinned library's cookie names/attributes, including secure prefixes.
-    for (const cookie of Object.values(service.cookies)) {
-      const attributes = {
-        path: cookie.attributes.path,
-        domain: cookie.attributes.domain,
-        secure: cookie.attributes.secure,
-        httpOnly: true,
-        sameSite: 'lax' as const,
-      }
-
-      deleteCookie(event, cookie.name, attributes)
-
-      for (const name of Object.keys(parseCookies(event))) {
-        if (name.startsWith(`${cookie.name}.`))
-          deleteCookie(event, name, attributes)
-      }
-    }
+    clearAuthCookies(event)
 
     return { status: 'password-reset' }
   } catch {

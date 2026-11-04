@@ -59,6 +59,10 @@ async function submit(event: FormSubmitEvent<z.output<typeof loginSchema>>) {
       Password reset. Please log in with your new password.
     </p>
 
+    <p v-if="$route.query.changed === '1'" role="status" class="mt-4 text-center text-sm">
+      Password changed. Please log in with your new password.
+    </p>
+
     <UForm :schema="loginSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
       <UFormField name="email" label="Email Address">
         <UInput v-model="state.email" type="email" autocomplete="email" placeholder="email@example.com" class="w-full" size="xl" :disabled="pending" />
