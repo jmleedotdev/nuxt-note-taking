@@ -20,7 +20,7 @@ export function authClientIP(event: H3Event, service: Service) {
   return peer
 }
 
-export async function consumeAuthLimit(service: Service, ip: string, email?: string, purpose: 'registration' | 'login' = 'registration') {
+export async function consumeAuthLimit(service: Service, ip: string, email?: string, purpose: 'registration' | 'login' | 'forgot' | 'reset' = 'registration') {
   const digest = (value: string) => createHmac('sha256', service.config.APP_AUTH_SECRET).update(value).digest('hex')
   const rules = [
     { key: 'global', max: 500, seconds: 3600 },
@@ -34,7 +34,7 @@ export async function consumeAuthLimit(service: Service, ip: string, email?: str
               ? 900
               : 3600,
           },
-          ...(purpose === 'registration'
+          ...(purpose === 'registration' || purpose === 'forgot'
             ? [
                 { key: `cooldown:${digest(email)}`, max: 1, seconds: 30 },
               ]
@@ -43,9 +43,9 @@ export async function consumeAuthLimit(service: Service, ip: string, email?: str
       : []),
   ].map(rule => ({
     ...rule,
-    key: purpose === 'login'
-      ? `login:${rule.key}`
-      : rule.key,
+    key: purpose === 'registration'
+      ? rule.key
+      : `${purpose}:${rule.key}`,
   })).sort((a, b) => a.key.localeCompare(b.key))
 
   // Stable lock order avoids deadlocks. ON CONFLICT is atomic across workers/instances.
