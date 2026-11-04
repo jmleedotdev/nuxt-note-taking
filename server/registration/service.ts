@@ -1,5 +1,5 @@
-import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { betterAuth } from 'better-auth/minimal'
 import { createDatabase } from '../db/client'
 import * as schema from '../db/schema/auth'
 import { registrationConfig } from './config'
