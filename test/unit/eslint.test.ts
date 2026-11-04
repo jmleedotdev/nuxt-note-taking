@@ -30,19 +30,25 @@ describe('eslint conventions through the CLI', () => {
     ['server/api/lint-example.ts', 'import { defineEventHandler } from \'h3\'\n\nexport default defineEventHandler(() => \'ok\')\n'],
     ['server/registration/lint-example.ts', 'import { readBody as read } from \'h3\'\n\nexport const body = read\n'],
     ['server/plugins/lint-example.ts', 'import { defineNitroPlugin } from \'nitropack/runtime\'\n\nexport default defineNitroPlugin(() => {})\n'],
+    ['app/composables/lint-example.ts', 'import { useOverlay } from \'@nuxt/ui/composables\'\n\nexport const overlay = useOverlay\n'],
+    ['app/composables/lint-example.ts', 'import { useOverlay } from \'@nuxt/ui/composables/useOverlay\'\n\nexport const overlay = useOverlay\n'],
   ])('rejects redundant runtime imports in %s', (path, source) => {
     const result = lint(path, source)
 
     expect(result.status).toBe(1)
     expect(result.messages).toEqual([
-      expect.objectContaining({ ruleId: 'ts/no-restricted-imports' }),
+      expect.objectContaining({ ruleId: 'no-restricted-imports' }),
     ])
   })
 
   it.each([
     'import { z } from \'zod\'\n\nexport const password = z.string()\n',
+    'import { z } from \'zod\'\n\nexport const age = z.coerce.number()\n',
+    'import { z } from \'zod\'\n\nexport const date = z.iso.date()\n',
     'import { z } from \'zod\'\n\nexport const email = z.email().max(254).transform(value => value.toLowerCase())\n',
     'import { passwordSchema } from \'./registration\'\n\nexport const password = passwordSchema.optional()\n',
+    'import { z } from \'zod\'\n\nconst password = z.string()\n\nexport { password }\n',
+    'import { passwordSchema } from \'./registration\'\n\nexport const password = passwordSchema\n',
   ])('requires Schema on exported Zod schema variables (%s)', (source) => {
     const result = lint('shared/schemas/lint-example.ts', source)
 
@@ -54,10 +60,15 @@ describe('eslint conventions through the CLI', () => {
 
   it.each([
     ['shared/schemas/lint-example.ts', 'import { z } from \'zod\'\n\nexport const passwordSchema = z.string()\n'],
+    ['shared/schemas/lint-example.ts', 'import { z } from \'zod\'\n\nexport const json = z.toJSONSchema(z.string())\n'],
+    ['shared/schemas/lint-example.ts', 'import { z } from \'zod\'\n\nexport const config = z.config()\n'],
     ['shared/schemas/lint-example.ts', 'import { z } from \'zod\'\n\nexport const registrationSchema = z.object({\n  email: z.email(),\n  password: z.string(),\n})\n\nexport type Registration = z.infer<typeof registrationSchema>\n'],
     ['shared/schemas/lint-example.ts', 'export const email = \'\'\n\nexport const fields = { password: \'\', email: \'\' }\n\nexport interface Registration { email: string }\n'],
     ['shared/schemas/lint-example.ts', 'import { z } from \'zod\'\n\nexport const email = z.email().parse(\'person@example.com\')\n'],
     ['shared/schemas/lint-example.ts', 'import { registrationSchema } from \'./registration\'\n\nexport const result = registrationSchema.safeParse({})\n'],
+    ['shared/schemas/lint-example.ts', 'import { registrationSchema } from \'./registration\'\n\nexport const success = Boolean(registrationSchema.safeParse({}).success)\n'],
+    ['shared/schemas/lint-example.ts', 'import { registrationSchema } from \'./registration\'\n\nexport const fields = Object.keys(registrationSchema.safeParse({}))\n'],
+    ['app/composables/lint-example.ts', 'import { useAvatarGroup } from \'@nuxt/ui/composables\'\n\nexport const avatarGroup = useAvatarGroup\n'],
     ['app/composables/lint-example.ts', 'import type { Ref } from \'vue\'\n\nexport type Count = Ref<number>\n'],
     ['server/api/lint-example.ts', 'import type { H3Event } from \'h3\'\n\nexport type Event = H3Event\n'],
     ['app/composables/lint-example.ts', 'import { z } from \'zod\'\n\nexport const value = z.string()\n'],

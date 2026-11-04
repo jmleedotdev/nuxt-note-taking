@@ -34,10 +34,11 @@ export default withNuxt(
         name: from,
         // Aliases with a different global name are not redundant imports.
         importNames: names.split(', ').filter(name => !name.includes(' as ')),
-        allowTypeImports: true,
-        message: 'Use the Nuxt/Nitro auto-imported runtime helper instead.',
       }))
     const names = imports.flatMap(({ importNames }) => importNames)
+    // Nuxt UI registers physical module paths, but exposes these same helpers
+    // through public composable entry points (not every UI export is imported).
+    const uiImports = imports.filter(({ name }) => name.includes('/node_modules/@nuxt/ui/dist/runtime/composables/'))
 
     return {
       files,
@@ -50,18 +51,22 @@ export default withNuxt(
         'server/db/**',
       ],
       rules: {
-        'ts/no-restricted-imports': [
+        'no-restricted-imports': [
           'error',
           {
             paths: [
               ...imports,
-              ...['#imports', ...barrels].map(name => ({
-                name,
-                importNames: names,
-                allowTypeImports: true,
-                message: 'Use the Nuxt/Nitro auto-imported runtime helper instead.',
-              })),
-            ],
+              ...uiImports.flatMap(({ name, importNames }) => [
+                '@nuxt/ui/composables',
+                `@nuxt/ui/composables/${name.split('/').at(-1)}`,
+                `@nuxt/ui/runtime/composables/${name.split('/').at(-1)}.js`,
+              ].map(name => ({ name, importNames }))),
+              ...['#imports', ...barrels].map(name => ({ name, importNames: names })),
+            ].map(path => ({
+              ...path,
+              allowTypeImports: true,
+              message: 'Use the Nuxt/Nitro auto-imported runtime helper instead.',
+            })),
           },
         ],
       },
@@ -107,6 +112,17 @@ export default withNuxt(
 ).onResolved((configs) => {
   // Retain the existing syntax restrictions rather than replacing their defaults.
   const syntaxRules = configs.find(config => config.name === 'antfu/javascript')?.rules?.['no-restricted-syntax']
+  // Schema factories from the installed Zod v4 classic API. Checks, error
+  // formatters, configuration, and JSON Schema conversion are not Zod schemas.
+  const schemaFactories = [
+    'string|email|guid|uuid|uuidv4|uuidv6|uuidv7|url|httpUrl|emoji|nanoid|cuid|cuid2|ulid|xid|ksuid',
+    'ipv4|mac|ipv6|cidrv4|cidrv6|base64|base64url|e164|creditCard|iban|jwt|stringFormat|hostname|hex|currencyCode|hash',
+    'number|int|float32|float64|int32|uint32|boolean|bigint|int64|uint64|symbol|undefined|null|any|unknown|never|void|date',
+    'array|keyof|object|strictObject|looseObject|union|xor|discriminatedUnion|intersection|tuple|record|partialRecord|looseRecord|map|set',
+    'enum|nativeEnum|literal|file|transform|optional|exactOptional|nullable|nullish|default|prefault|nonoptional|success|nan|catch',
+    'pipe|codec|invertCodec|readonly|templateLiteral|lazy|promise|function|custom|instanceof|stringbool|json|preprocess',
+    'fromJSONSchema|deepPartial|input|output|clone',
+  ].join('|')
 
   configs.push({
     files: ['shared/schemas/**/*.{ts,js}'],
@@ -116,8 +132,25 @@ export default withNuxt(
           ? syntaxRules
           : ['error']),
         {
-          selector: 'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator[id.type="Identifier"][id.name!=/Schema$/][init.type="CallExpression"]:not([init.callee.property.name=/^(parse|safeParse|parseAsync|safeParseAsync)$/]):has(CallExpression:matches([callee.object.name="z"], [callee.object.name=/Schema$/]))',
-          message: 'Exported Zod schema variables must have a Schema suffix.',
+          // Include top-level declarations so a later `export { schema }` does
+          // not bypass naming. Only follow schema-producing initializer chains;
+          // schemas consumed inside call arguments are not the resulting value.
+          selector: [
+            ':matches(Program, ExportNamedDeclaration) > VariableDeclaration > ',
+            'VariableDeclarator[id.type="Identifier"][id.name!=/Schema$/]',
+            ':matches(',
+            '[init.type="Identifier"][init.name=/Schema$/], ',
+            '[init.type="CallExpression"][init.callee.type="MemberExpression"]',
+            ':has(CallExpression:matches(',
+            `[callee.object.name="z"][callee.property.name=/^(${schemaFactories})$/], `,
+            '[callee.object.object.name="z"][callee.object.property.name=/^(coerce|iso)$/], ',
+            '[callee.object.name=/Schema$/])',
+            ':not(.arguments):not(.arguments *))',
+            ':not(:has(CallExpression[callee.property.name=/^(parse|safeParse|parseAsync|safeParseAsync|encode|decode|encodeAsync|decodeAsync|safeEncode|safeDecode|safeEncodeAsync|safeDecodeAsync|toJSONSchema|isOptional|isNullable)$/]',
+            ':not(.arguments):not(.arguments *)))',
+            ')',
+          ].join(''),
+          message: 'Top-level Zod schema variables must have a Schema suffix.',
         },
       ],
     },
