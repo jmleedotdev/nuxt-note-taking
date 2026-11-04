@@ -44,13 +44,14 @@ account succeeds harmlessly. Invalid/expired links redirect to
 `/check-email?invalid=1` without reflecting the token. Verification callbacks
 send `no-store` and `Referrer-Policy: no-referrer`.
 
-Login offers a generic **Send verification email** action using the entered email.
-It does not require a password or disclose whether the account exists. Accepted
-requests enter the existing read-only check-email screen with its 30-second
-countdown. Login with correct unverified credentials also enters that screen,
-without implicitly sending another email. Email/cooldown state is ephemeral;
-a reload without that context offers login recovery as documented in registration.
-There is no Google sign-in or password-reset UI in this slice.
+Login has no verification-email action. Correct unverified credentials lead to
+Check your email without creating a session or implicitly sending another email.
+Resend remains on that read-only screen, with its server-enforced 30-second cooldown.
+Without ephemeral email context, invalid/expired-link and verification-required
+screens instruct the user to enter their email and password on login to reach
+resend recovery. Email/cooldown state is ephemeral; a reload without that context
+offers login recovery as documented in registration. There is no Google sign-in
+or password-reset UI in this slice.
 
 ## Session authority and SSR
 
@@ -72,7 +73,8 @@ should map those errors to their application HTTP response, as `/api/session` do
 `/api/session` on navigation, including SSR, and redirects anonymous visitors to
 `/login` and unverified sessions to `/check-email?required=1`. That screen explains
 that email verification is required, rather than claiming a link was invalid;
-without ephemeral email context it links to login's verification-email action. SSR requests use
+without ephemeral email context it links to login and explains credential-based
+verification recovery. SSR requests use
 request-scoped fetch rather than a global user/session cache; all outgoing
 Set-Cookie values from session checks are appended to the browser response.
 The server adapter likewise preserves every library Set-Cookie header on login,

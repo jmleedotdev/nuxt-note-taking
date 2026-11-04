@@ -60,6 +60,7 @@ test('signup, unverified recovery, verification, login, SSR shell, and logout', 
 
 test('login asks for a password without listing signup requirements', async ({ page, goto }) => {
   await goto('/login', { waitUntil: 'hydration' })
+  await expect(page.getByRole('button', { name: 'Send verification email', exact: true })).toHaveCount(0)
   await page.getByLabel('Email Address', { exact: true }).fill('login@example.test')
   await page.getByRole('button', { name: 'Login', exact: true }).click()
   await expect(page.getByText('Enter a password.', { exact: true })).toBeVisible()
@@ -69,17 +70,35 @@ test('login asks for a password without listing signup requirements', async ({ p
   await expect(page.getByText('Enter a password.', { exact: true })).toBeVisible()
 })
 
-test('invalid verification recovers through login with generic resend and visible cooldown', async ({ page, goto }) => {
+test('invalid verification recovers through credentials to rate-limited resend without signing in', async ({ page, goto }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await goto('/api/registration/verify?token=invalid', { waitUntil: 'hydration' })
   await expect(page.getByRole('alert')).toContainText('invalid or has expired')
+  await expect(page.getByText('Enter your email and password on the login page to request a new verification link.')).toBeVisible()
+
+  const email = `recovery-${randomUUID()}@example.test`
+  const registered = await page.request.post('/api/registration', {
+    headers: { origin: new URL(page.url()).origin },
+    data: { email, password: 'Abcdef1!' },
+  })
+
+  expect(registered.status()).toBe(202)
   await page.getByRole('link', { name: 'Back to login' }).click()
-  await page.getByLabel('Email Address', { exact: true }).fill(`unknown-${randomUUID()}@example.test`)
+  await expect(page.getByRole('button', { name: 'Send verification email', exact: true })).toHaveCount(0)
+  await page.getByLabel('Email Address', { exact: true }).fill(email)
+  await page.getByLabel('Password', { exact: true }).fill('Abcdef1!')
   await page.screenshot({
     path: test.info().outputPath('recovery-login-dark.png'),
   })
-  await page.getByRole('button', { name: 'Send verification email', exact: true }).click()
+  await page.getByRole('button', { name: 'Login', exact: true }).click()
   await expect(page).toHaveURL(/\/check-email$/)
+  await expect(page.getByText(email, { exact: true })).toBeVisible()
+  expect((await page.request.get('/api/session')).status()).toBe(401)
+
+  const resend = page.waitForResponse(response => response.url().endsWith('/api/registration/resend'))
+
+  await page.getByRole('button', { name: 'Send again', exact: true }).click()
+  expect((await resend).status()).toBe(429)
   await expect(page.getByRole('button', { name: /Send again/ })).toBeDisabled()
   await expect(page.getByRole('button', { name: /Send again \(/ })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

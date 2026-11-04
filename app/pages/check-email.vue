@@ -73,7 +73,10 @@ async function resend() {
 
     <p v-else-if="$route.query.required" role="alert" class="mt-4 text-sm">
       Your email needs verification before you can access your notes.
-      <span v-if="!email">Go to login to request a new verification email.</span>
+    </p>
+
+    <p v-if="!email && ($route.query.invalid || $route.query.required)" class="mt-4 text-sm text-neutral-600 dark:text-neutral-300">
+      Enter your email and password on the login page to request a new verification link.
     </p>
 
     <div v-if="email" class="mt-8 space-y-4">

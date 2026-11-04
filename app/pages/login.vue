@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { z } from 'zod'
-import { loginSchema, resendSchema } from '#shared/schemas/registration'
+import { loginSchema } from '#shared/schemas/registration'
 
 useHead({ title: 'Login' })
 
@@ -11,7 +11,6 @@ const pending = ref(false)
 const message = ref('')
 const authentication = useAuthentication()
 const registration = useRegistration()
-const form = useTemplateRef('form')
 
 async function submit(event: FormSubmitEvent<z.output<typeof loginSchema>>) {
   pending.value = true
@@ -40,29 +39,6 @@ async function submit(event: FormSubmitEvent<z.output<typeof loginSchema>>) {
     pending.value = false
   }
 }
-
-async function resend() {
-  const parsed = resendSchema.safeParse({ email: state.email })
-
-  if (!parsed.success) {
-    form.value?.setErrors([
-      { name: 'email', message: 'Enter a valid email address.' },
-    ])
-
-    return
-  }
-
-  pending.value = true
-  message.value = ''
-
-  const result = await registration.submit('/api/registration/resend', parsed.data)
-
-  pending.value = false
-
-  if (result.ok)
-    await navigateTo('/check-email')
-  else message.value = result.message
-}
 </script>
 
 <template>
@@ -79,7 +55,7 @@ async function resend() {
       Email verified. You can now log in.
     </p>
 
-    <UForm ref="form" :schema="loginSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
+    <UForm :schema="loginSchema" :state="state" :validate-on="[]" class="mt-8 space-y-4" @submit="submit">
       <UFormField name="email" label="Email Address">
         <UInput v-model="state.email" type="email" autocomplete="email" placeholder="email@example.com" class="w-full" size="xl" :disabled="pending" />
       </UFormField>
@@ -101,17 +77,7 @@ async function resend() {
       </UButton>
     </UForm>
 
-    <div class="mt-6 border-t border-neutral-200 pt-6 text-center text-sm dark:border-neutral-700">
-      <p class="text-neutral-600 dark:text-neutral-300">
-        Need a new verification link? Enter your email above.
-      </p>
-
-      <UButton type="button" variant="link" :disabled="pending" @click="resend">
-        Send verification email
-      </UButton>
-    </div>
-
-    <p class="mt-4 text-center text-sm text-neutral-600 dark:text-neutral-300">
+    <p class="mt-6 border-t border-neutral-200 pt-6 text-center text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
       No account yet? <NuxtLink to="/signup" class="font-medium text-neutral-950 underline dark:text-neutral-0">Sign Up</NuxtLink>
     </p>
   </AccountPanel>
