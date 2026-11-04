@@ -21,6 +21,7 @@ const { data: selected, status: readStatus, error: readError, refresh: reread } 
 )
 const detail = computed(() => creating.value || !!noteId.value)
 const archiveOpen = ref(false)
+const deleteOpen = ref(false)
 const pending = useState('note-save-pending', () => false)
 const transitionError = ref('')
 const toast = useToast()
@@ -40,8 +41,9 @@ watch(noteId, () => {
   dismissConflict()
 })
 
-async function transition() {
+async function transition(action: 'archive' | 'delete' = 'archive') {
   archiveOpen.value = false
+  deleteOpen.value = false
 
   const note = selected.value
 
@@ -52,15 +54,22 @@ async function transition() {
   transitionError.value = ''
 
   try {
-    const updated = note.isArchived
-      ? await notes.restore(note.id, note.version)
-      : await notes.archive(note.id, note.version)
+    if (action === 'delete') {
+      await notes.delete(note.id, note.version)
+      selected.value = null
+      clearNuxtData(`note-${note.id}`)
+    } else {
+      selected.value = note.isArchived
+        ? await notes.restore(note.id, note.version)
+        : await notes.archive(note.id, note.version)
+    }
 
     dirty.value = false
-    selected.value = updated
     dismissConflict()
     toast.add({
-      title: updated.isArchived ? 'Note archived.' : 'Note restored to active notes.',
+      title: action === 'delete'
+        ? 'Note permanently deleted.'
+        : selected.value?.isArchived ? 'Note archived.' : 'Note restored to active notes.',
       color: 'success',
     })
     pending.value = false
@@ -287,13 +296,29 @@ function date(value: string) {
     </section>
 
     <aside v-if="selected && detail && !creating" aria-label="Note actions" class="mb-4 flex flex-col gap-3 border-neutral-200 pt-4 xl:order-last xl:mb-0 xl:w-64 xl:shrink-0 xl:border-l xl:p-5 dark:border-neutral-800">
-      <UButton v-if="selected.isArchived" icon="i-app-restore" color="neutral" variant="outline" :loading="pending" @click="transition">
+      <UButton v-if="selected.isArchived" icon="i-app-restore" color="neutral" variant="outline" :loading="pending" @click="transition()">
         Restore Note
       </UButton>
 
       <UButton v-else icon="i-app-archive" color="neutral" variant="outline" :disabled="pending" @click="archiveOpen = true">
         Archive Note
       </UButton>
+
+      <UModal v-model:open="deleteOpen" title="Delete Note" description="Are you sure you want to permanently delete this note? This action cannot be undone." :close="false" :ui="{ content: 'max-w-110', footer: 'justify-end' }">
+        <UButton icon="i-app-delete" color="neutral" variant="outline" :disabled="pending">
+          Delete Note
+        </UButton>
+
+        <template #footer>
+          <UButton color="neutral" variant="outline" @click="deleteOpen = false">
+            Cancel
+          </UButton>
+
+          <UButton color="error" @click="transition('delete')">
+            Delete Note
+          </UButton>
+        </template>
+      </UModal>
 
       <p v-if="transitionError" role="alert" class="text-sm text-red-600 dark:text-red-400">
         {{ transitionError }}
@@ -306,7 +331,7 @@ function date(value: string) {
           Cancel
         </UButton>
 
-        <UButton icon="i-app-archive" @click="transition">
+        <UButton icon="i-app-archive" @click="transition()">
           Archive Note
         </UButton>
       </template>

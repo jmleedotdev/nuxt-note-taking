@@ -1,8 +1,8 @@
 # Creating, editing and reopening private notes
 
-This slice implements create/list/read/edit with explicit Save and Cancel. Archive
-mutations, search, and tag navigation remain later slices. Archived notes remain
-read-only until restored.
+Notes support create/list/read/edit with explicit Save and Cancel, archive/restore,
+and permanent deletion. Search and tag navigation remain later slices. Archived
+notes remain read-only until restored, but can be permanently deleted.
 
 ## Application HTTP contract
 
@@ -23,6 +23,15 @@ EMAIL_NOT_VERIFIED`. Database/operation failures return `503 NOTES_UNAVAILABLE`.
   Stale saves return `409 NOTE_VERSION_CONFLICT`; archived notes return `409
   NOTE_NOT_EDITABLE`. Missing, removed, malformed and other-owner IDs all return
   `404 NOTE_NOT_FOUND`, without distinguishing another owner's record.
+
+- `DELETE /api/notes/:id`: JSON `{ version }`; permanently removes an active or
+  archived note using the last observed positive integer version. Returns 204 with
+  no body. Uses the same origin, JSON validation, authentication and error envelope
+  as other mutations. A single owner-scoped PostgreSQL DELETE checks ID and version
+  atomically. Stale deletes return `409 NOTE_VERSION_CONFLICT`; missing, removed,
+  malformed and other-owner IDs return indistinguishable `404 NOTE_NOT_FOUND`.
+  No schema migration is needed; there is no trash, soft-delete, undo or restore
+  after deletion.
 
 A note contains exactly `id`, `title`, `content`, `tags`, `lastEdited` (UTC ISO 8601),
 `isArchived`, and `version`. Identity/ownership are immutable, assigned by the
@@ -81,10 +90,28 @@ and screenshots were inspected. The existing local tag/clock/back icons, fonts
 and Nuxt UI controls are reused. Archive/delete actions and other unfinished
 navigation remain outside this issue's implementation.
 
+## Permanent deletion
+
+Active and archived detail views expose Delete Note using the supplied delete
+icon. The Nuxt UI dialog explicitly warns that deletion is permanent and cannot
+be undone. Cancel receives initial focus; Escape and Cancel leave persistence
+unchanged and return focus to the trigger. Confirming reuses `confirmDiscard`
+before sending a deletion if the editor has unsaved changes. Failed/stale requests
+retain the editor text, use existing error/toast reload recovery, and allow retry.
+Successful deletion clears the selected note cache and refreshes both note lists,
+returning to the current collection with its remaining notes or empty state.
+Search and derived tag navigation are not present yet.
+
+The supplied Figma file could not be inspected for this slice: the MCP metadata
+request returned an edit-access denial. The existing Nuxt UI confirmation pattern
+was reused; exact delete-frame visual fidelity remains unverified.
+
 ## Validation
 
 `pnpm test:http test/http/notes.test.ts` exercises real HTTP/PostgreSQL behavior
-using migrated disposable databases, including competing edits, stale no-ops,
+using migrated disposable databases, including permanent active/archived deletion,
+owner/version/origin enforcement and competing delete/edit/archive/restore requests,
+competing edits, stale no-ops,
 unchanged timestamps/ordering, validation, ownership and removed records. Test-only
 clock/archive/removal setup is not mounted in production.
 `pnpm test:browser tests/edit-notes.spec.ts tests/notes*.spec.ts` covers editing,
@@ -92,3 +119,6 @@ competing tabs, toast/reload and removed-note recovery as well as create, cancel
 validation, retry, refresh, safe paragraph rendering, tags, failed loads and
 unsaved-navigation confirmation at desktop/tablet/mobile sizes. Routine tests
 replace external mail delivery only and send no real email.
+`pnpm test:browser tests/delete-notes.spec.ts` additionally covers permanent deletion,
+Cancel/Escape, keyboard focus, unsaved-work protection, stale/removed-note reload,
+request failure/retry, selection and empty states at all three configured sizes.
