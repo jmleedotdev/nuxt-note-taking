@@ -25,7 +25,8 @@ or outbound internet is needed after the image is pulled.
    settings make migration fail rather than select a default database.
    `pnpm db:generate` only needs the schema files, not a database connection.
 5. `pnpm dev`; open `/signup`.
-   Authentication-aware routing for `/` is deferred; visit `/signup` directly.
+   `/` now requires a verified session and redirects anonymous users to `/login`.
+   See [authentication](authentication.md) for verification, login, and logout.
 6. Open `http://127.0.0.1:3550` to inspect captured verification emails and follow
    their links. The app still runs on the host; PostgreSQL and Mailtrap run in Docker.
 
@@ -131,9 +132,8 @@ other library routes cannot bypass policy; they return 404.
   email context follows the login redirect described below.
 - Verification links use `GET /api/registration/verify?token=...`; the small
   bootstrap callback maps success to a fixed `/login?verified=1` redirect,
-  invalid/expired to `/check-email?invalid=1`, and sets no cookie. Full login,
-  verification results, protected shell, and logout are issue #3. In particular,
-  the login destination is not implemented by #2.
+  invalid/expired to `/check-email?invalid=1`, and sets no cookie. Issue #3 adds
+  the [login, recovery, protected shell, and logout contract](authentication.md).
 
 Responses never include a library user/account, credential hash, or token.
 Passwords remain in local form state only until success; neither passwords nor

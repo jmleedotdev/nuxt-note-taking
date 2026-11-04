@@ -5,7 +5,7 @@ import { registrationConfig } from './config'
 import { consumeRegistrationLimit, registrationClientIP } from './limits'
 import { registrationService } from './service'
 
-function checkRegistrationOrigin(event: H3Event) {
+export function checkRegistrationOrigin(event: H3Event) {
   return getHeader(event, 'origin') === registrationConfig().APP_URL
     && getHeader(event, 'content-type')?.split(';')[0] === 'application/json'
     && getHeader(event, 'sec-fetch-site') !== 'cross-site'
@@ -59,7 +59,7 @@ async function registrationInput<T>(event: H3Event, schema: z.ZodType<T>) {
   return { data: parsed.data }
 }
 
-export async function admitRegistration<T extends { email: string }>(event: H3Event, schema: z.ZodType<T>) {
+export async function admitRegistration<T extends { email: string }>(event: H3Event, schema: z.ZodType<T>, purpose: 'registration' | 'login' = 'registration') {
   if (!checkRegistrationOrigin(event)) {
     setResponseStatus(event, 403)
 
@@ -77,7 +77,7 @@ export async function admitRegistration<T extends { email: string }>(event: H3Ev
   }
 
   const service = registrationService()
-  const retryAfter = await consumeRegistrationLimit(service, registrationClientIP(event, service), parsed.data.email)
+  const retryAfter = await consumeRegistrationLimit(service, registrationClientIP(event, service), parsed.data.email, purpose)
 
   if (retryAfter) {
     setResponseStatus(event, 429)

@@ -62,6 +62,23 @@ function createRegistrationService() {
     client,
     sender,
     config,
+    async login(email: string, password: string, headers: Headers) {
+      return auth.api.signInEmail({
+        body: { email, password },
+        headers,
+        asResponse: true,
+      })
+    },
+    async session(headers: Headers) {
+      return auth.api.getSession({
+        headers,
+        query: { disableCookieCache: true, disableRefresh: true },
+        asResponse: true,
+      })
+    },
+    async logout(headers: Headers) {
+      return auth.api.signOut({ headers, asResponse: true })
+    },
     async resend(email: string, headers: Headers) {
       await auth.api.sendVerificationEmail({
         body: { email },

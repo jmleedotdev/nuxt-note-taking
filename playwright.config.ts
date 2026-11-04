@@ -14,6 +14,16 @@ export default defineConfig<ConfigOptions>({
     nuxt: {
       rootDir: fileURLToPath(new URL('.', import.meta.url)),
       port: 3000,
+      nuxtConfig: {
+        nitro: {
+          handlers: [
+            {
+              route: '/__test/mail',
+              handler: fileURLToPath(new URL('./test/fixtures/mail.ts', import.meta.url)),
+            },
+          ],
+        },
+      },
     },
   },
   projects: [
