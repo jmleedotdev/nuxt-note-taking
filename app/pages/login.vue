@@ -5,6 +5,7 @@ import { loginSchema } from '#shared/schemas/registration'
 
 useHead({ title: 'Login' })
 
+const demo = useDemo()
 const state = reactive({ email: '', password: '' })
 const showPassword = ref(false)
 const pending = ref(false)
@@ -85,11 +86,11 @@ async function submit(event: FormSubmitEvent<z.output<typeof loginSchema>>) {
       </UButton>
     </UForm>
 
-    <NuxtLink to="/forgot-password" class="mt-4 block text-right text-sm text-neutral-600 underline dark:text-neutral-300">
+    <NuxtLink v-if="!demo" to="/forgot-password" class="mt-4 block text-right text-sm text-neutral-600 underline dark:text-neutral-300">
       Forgot password?
     </NuxtLink>
 
-    <p class="mt-6 border-t border-neutral-200 pt-6 text-center text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+    <p v-if="!demo" class="mt-6 border-t border-neutral-200 pt-6 text-center text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
       No account yet? <NuxtLink to="/signup" class="font-medium text-neutral-950 underline dark:text-neutral-0">Sign Up</NuxtLink>
     </p>
   </AccountPanel>

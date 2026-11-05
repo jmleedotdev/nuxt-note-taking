@@ -14,6 +14,8 @@
     "db:migrate": "drizzle-kit migrate",
     "test:http": "tsx scripts/test-database.ts exec vitest run --project http",
     "test:mail": "tsx scripts/test-database.ts exec vitest run --config vitest.mail.config.ts",
+    "demo:provision": "tsx scripts/provision-demo.ts",
+    "test:browser:demo": "APP_TEST_ORIGIN=http://127.0.0.1:3000 tsx scripts/test-database.ts exec playwright test --config playwright.demo.config.ts",
     "test:browser": "APP_TEST_ORIGIN=http://127.0.0.1:3000 tsx scripts/test-database.ts exec playwright test",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",

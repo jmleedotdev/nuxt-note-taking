@@ -4,6 +4,7 @@ import { betterAuth } from 'better-auth/minimal'
 import postgres from 'postgres'
 import { createDatabase } from '../db/client'
 import * as schema from '../db/schema/auth'
+import { isDemoAccount } from '../demo/accounts'
 import { authConfig } from './config'
 import { createMailSender, verificationMessage } from './mail'
 import { hashPassword, verifyPassword } from './password'
@@ -71,6 +72,13 @@ function createAuthService() {
     recovery: createPasswordRecovery({ client: credentialTransactions, config, sender }),
     cookies: getCookies(auth.options),
     async login(email: string, password: string, headers: Headers) {
+      if (config.APP_ENV === 'demo') {
+        const [user] = await client`SELECT id, email FROM "user" WHERE email = ${email}`
+
+        if (!user || !isDemoAccount({ id: user.id, email: user.email }))
+          return Response.json({ code: 'INVALID_CREDENTIALS' }, { status: 401 })
+      }
+
       return credentialTransactions.begin(async (sql) => {
         await sql`SELECT pg_advisory_xact_lock(hashtextextended(${credentialLockKey(email)}, 0))`
 

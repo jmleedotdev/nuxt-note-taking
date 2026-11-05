@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const appConfig = useAppConfig()
+const demo = useDemo()
 
 useHead({
   titleTemplate: title => title
@@ -13,6 +14,8 @@ useHead({
     <NuxtRouteAnnouncer />
 
     <UApp>
+      <DemoNotice v-if="demo" />
+
       <NuxtPage />
     </UApp>
   </div>

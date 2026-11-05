@@ -23,6 +23,12 @@ export class MemoryMailSender implements MailSender {
 }
 
 export function createMailSender(config: ReturnType<typeof authConfig>): MailSender {
+  if (config.MAIL_MODE === 'none') {
+    return {
+      async send() { throw new Error('Mail is disabled in demo mode') },
+    }
+  }
+
   if (config.MAIL_MODE === 'memory') {
     return new MemoryMailSender()
   }
