@@ -116,8 +116,9 @@ for (const theme of ['light', 'dark'] as const) {
       fullPage: true,
       animations: 'disabled',
     })
-    await page.getByLabel('Note content', { exact: true }).focus()
-    await page.keyboard.press('End')
+    // Filling the unchanged value puts the caret at its end on every platform;
+    // macOS End scrolls without moving the caret.
+    await page.getByLabel('Note content', { exact: true }).fill('Saved body')
     await page.keyboard.press('Enter')
     await page.keyboard.type('Unsaved second line')
     await expect(page.getByLabel('Note content', { exact: true })).toHaveValue('Saved body\nUnsaved second line')

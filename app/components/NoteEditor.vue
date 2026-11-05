@@ -24,6 +24,25 @@ const form = useTemplateRef('form')
 const notes = useNotes()
 const toast = useToast()
 const recovery = ref(false)
+const { getKbdKey } = useKbd()
+
+// defineShortcuts remaps Command to Control off macOS; this operation supports
+// both bindings and must leave native Save Page untouched while a modal is open.
+function saveShortcut(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.isComposing || event.altKey || event.shiftKey
+    || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's'
+    || document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+    return
+  }
+
+  event.preventDefault()
+
+  if (!event.repeat && !pending.value && !form.value?.loading)
+    void form.value?.submit()
+}
+
+onMounted(() => window.addEventListener('keydown', saveShortcut))
+onBeforeUnmount(() => window.removeEventListener('keydown', saveShortcut))
 
 onBeforeUnmount(() => toast.remove('note-conflict'))
 
@@ -137,8 +156,12 @@ async function save(event: FormSubmitEvent<NoteInput>) {
           Cancel
         </UButton>
 
-        <UButton type="submit" variant="ghost" class="px-1" :loading="pending">
-          Save Note
+        <UButton type="submit" variant="ghost" class="gap-1 px-1" :loading="pending" aria-label="Save Note" aria-keyshortcuts="Meta+S Control+S">
+          <span class="hidden sm:inline">Save Note</span>
+
+          <span class="sm:hidden">Save</span>
+
+          <span aria-hidden="true" class="hidden text-[10px] leading-tight font-normal opacity-60 min-[360px]:inline">{{ getKbdKey('meta') }} + S</span>
         </UButton>
       </div>
     </div>
@@ -176,8 +199,9 @@ async function save(event: FormSubmitEvent<NoteInput>) {
     </p>
 
     <div class="hidden gap-4 border-t border-neutral-200 pt-4 xl:flex dark:border-neutral-800">
-      <UButton type="submit" :loading="pending">
+      <UButton type="submit" :loading="pending" aria-label="Save Note" aria-keyshortcuts="Meta+S Control+S">
         Save Note
+        <span aria-hidden="true" class="text-xs leading-tight font-normal opacity-60">{{ getKbdKey('meta') }} + S</span>
       </UButton>
 
       <UButton color="neutral" variant="soft" :disabled="pending" @click="cancel">
