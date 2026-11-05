@@ -64,6 +64,21 @@ allows refresh/reopen and opens active notes in the shared plain-text editor.
 No draft contents are placed in storage or URLs. Cancel abandons a new draft or
 restores the existing saved title/content/tags without an HTTP write. Failed saves
 retain input for retry.
+
+Command+S and Control+S submit the same schema-backed Save Note operation while
+an editable new or existing active note is open, including from multiline content
+and with a physical keyboard on narrow layouts. A platform-aware hint appears in
+the Save Note buttons only as small, muted `⌘ + S` / `Ctrl + S` text without
+an outline or background. Below 360px the visual hint is hidden to keep the action toolbar
+within the viewport; shortcut metadata and the accessible Save Note name remain.
+Applicable presses
+prevent browser Save Page, including while saving, but pending saves and held-key
+repeats do not start another submission. Ordinary Enter in content inserts a line
+break. No shortcut is registered without an editor (account/settings forms, note
+lists, archived read-only notes), and any open app dialog leaves the shortcut and
+native browser default alone. The listener is removed when the editor unmounts.
+There is no autosave, browser-storage draft, or new save-success toast.
+
 In-app navigation away from changed input asks for confirmation through Nuxt UI;
 page exits use the native browser warning where supported. Saved content renders
 as escaped text with preserved whitespace, never as HTML or Markdown. The shared
@@ -167,3 +182,34 @@ replace external mail delivery only and send no real email.
 `pnpm test:browser tests/delete-notes.spec.ts` additionally covers permanent deletion,
 Cancel/Escape, keyboard focus, unsaved-work protection, stale/removed-note reload,
 request failure/retry, selection and empty states at all three configured sizes.
+
+### Save shortcut verification (#34)
+
+- `pnpm lint` and `pnpm typecheck`: passed on the final application/test changes.
+- `pnpm test`: 14 files, 133 tests passed (unit/Nuxt/HTTP projects).
+- `pnpm test:browser tests/edit-notes.spec.ts tests/responsive-actions.spec.ts tests/delete-notes.spec.ts --reporter=line`:
+  27 passed across desktop/tablet/mobile after the final hint changes.
+- Final `pnpm test:browser --reporter=line`: 96 passed, 6 opt-in audit journeys
+  skipped. The isolated runner creates/migrates/drops a disposable test database.
+- The initial shortcut tracer failed before implementation. Browser checks cover
+  both modifiers, new/existing editors, all three focused fields, multiline Enter,
+  validation/server/network failures, retained drafts, stale/removed recovery,
+  pending/repeated/held keys across editor replacement, normalized no-op saves,
+  account/settings/list/archived exclusions, all three confirmations, native
+  default preservation, modal focus, and both platform hints in the Save buttons.
+- An earlier full run exposed a platform-dependent responsive-test assumption:
+  macOS End did not move the focused textarea caret. Filling its unchanged value
+  now establishes the append position without changing production editing.
+  A later run encountered one transient HTTP `ECONNRESET` in the existing deletion
+  journey; its focused rerun and the final full suite passed.
+- Responsive light/dark journeys captured screenshots and checked toolbar fit;
+  the hint stays inside the buttons with no background or standalone row.
+  The owner subsequently requested
+  removing only the hint outline and explicitly waived another test round for
+  that CSS-only change; the passing results above precede its removal.
+  No pixel-parity claim or
+  additional audit proposal. Existing audit files and captured images are unchanged
+  and are not part of this commit.
+- Independent Standards and Spec reviews, including the final presentation/test
+  delta: no findings. Reviewers inspected code; executed checks above are from the
+  implementation session.
