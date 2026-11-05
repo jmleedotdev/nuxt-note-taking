@@ -51,6 +51,7 @@ function conflict(code?: string) {
       : 'A newer version of this note exists.',
     description: 'Your text is still here. Copy anything you need, then reload for the latest state.',
     color: 'warning',
+    icon: 'i-app-info',
     duration: 0,
     actions: [
       { label: 'Reload note', onClick: reload },
