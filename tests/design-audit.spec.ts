@@ -34,6 +34,7 @@ for (const theme of ['light', 'dark'] as const) {
         fullPage: true,
         animations: 'disabled',
       })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       observations.push({
         name,
         viewport: page.viewportSize(),
@@ -156,11 +157,13 @@ for (const theme of ['light', 'dark'] as const) {
 
     await visit(`/?note=${note.id}&view=archived`)
     await page.getByRole('button', { name: 'Restore Note', exact: true }).click()
+    await expect(page.getByText('Note restored to active notes.', { exact: true })).toBeVisible()
+    await expect(page).not.toHaveURL(/note=/)
     await visit(`/?note=${note.id}`)
     await page.getByLabel('Title', { exact: true }).fill('Retained conflicting draft')
     expect((await page.request.put(`/api/notes/${note.id}`, {
       headers,
-      data: { title: 'Newer saved title', version: 3 },
+      data: { title: 'Newer saved title', content: 'Newer saved body', version: 3 },
     })).status()).toBe(200)
     await page.getByRole('button', { name: 'Save Note', exact: true }).click()
     await expect(page.getByText('A newer version of this note exists.', { exact: true })).toBeVisible()
@@ -197,9 +200,73 @@ for (const theme of ['light', 'dark'] as const) {
             ? 'Noto Serif'
             : 'Source Code Pro')).toBeGreaterThan(0)
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+
+          if (project === 'desktop') {
+            const search = page.getByRole('searchbox', { name: 'Search notes', exact: true })
+            const hint = page.getByText(/^(?:Ctrl|⌘) \+ K$/)
+            const textRight = await search.evaluate((input) => {
+              const box = input.getBoundingClientRect()
+
+              return box.right - Number.parseFloat(getComputedStyle(input).paddingRight)
+            })
+
+            expect(textRight).toBeLessThanOrEqual((await hint.boundingBox())!.x)
+          }
+
           await capture(`${font}-${name}`)
         }
 
+        const content = page.getByLabel('Note content', { exact: true })
+
+        await content.fill('Unsaved font verification text')
+
+        for (const action of ['Archive Note', 'Delete Note', 'Discard unsaved note?']) {
+          const discard = action === 'Discard unsaved note?'
+          const trigger = discard
+            ? page.getByRole('link', { name: 'All Notes', exact: true }).filter({ visible: true })
+            : page.getByRole('button', { name: action, exact: true })
+
+          await trigger.click()
+
+          const dialog = page.getByRole('dialog', { name: action, exact: true })
+          const safe = dialog.getByRole('button', {
+            name: discard ? 'Keep writing' : 'Cancel',
+            exact: true,
+          })
+          const confirm = dialog.getByRole('button', {
+            name: discard ? 'Discard note' : action,
+            exact: true,
+          })
+
+          await expect(safe).toBeFocused()
+
+          for (const binding of [
+            'Meta+s',
+            'Control+s',
+            'Meta+k',
+            'Control+k',
+          ]) {
+            await page.keyboard.press(binding)
+            await expect(safe).toBeFocused()
+          }
+
+          await page.keyboard.press('Shift+Tab')
+          await expect(confirm).toBeFocused()
+          await page.keyboard.press('Tab')
+          await expect(safe).toBeFocused()
+          await capture(`${font}-${discard
+            ? 'discard'
+            : action.split(' ')[0]!.toLowerCase()}-dialog`)
+          await page.keyboard.press('Escape')
+          await expect(dialog).toHaveCount(0)
+          await expect(trigger).toBeFocused()
+          await expect(content).toHaveValue('Unsaved font verification text')
+        }
+
+        // A save behind any modal would have overwritten the persisted content.
+        expect((await (await page.request.get(`/api/notes/${note.id}`)).json()).content)
+          .toBe('Newer saved body')
+        await page.getByRole('button', { name: 'Cancel', exact: true }).click()
         await visit('/?panel=settings')
         await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).last().click()
         await expect(page).toHaveURL(/\/login$/)

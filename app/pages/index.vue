@@ -160,7 +160,7 @@ async function logout() {
 
         <div class="hidden shrink-0 items-center gap-5 xl:flex">
           <form @submit.prevent="submitSearch">
-            <UInput ref="desktopSearch" v-model="search" type="search" icon="i-app-search" placeholder="Search by title, content, or tags…" aria-label="Search notes" class="w-75">
+            <UInput ref="desktopSearch" v-model="search" type="search" icon="i-app-search" placeholder="Search by title, content, or tags…" aria-label="Search notes" class="w-75" :ui="{ base: 'pe-20' }">
               <template #trailing>
                 <span aria-hidden="true" class="pointer-events-none text-xs text-neutral-500">{{ getKbdKey('meta') }} + K</span>
               </template>
