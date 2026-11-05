@@ -3,6 +3,7 @@ import { isError } from 'h3'
 import { appearanceSchema } from '../../shared/schemas/preferences'
 import { checkAuthOrigin } from '../auth/http'
 import { requireVerifiedSession } from '../auth/session'
+import { withDemoAccess } from '../demo/lifecycle'
 import { readApplicationJSON } from '../utils/readApplicationJSON'
 
 export async function readAppearanceInput(event: H3Event) {
@@ -31,28 +32,30 @@ export async function preferencesHTTP(event: H3Event, operation: (ownerId: strin
   setHeader(event, 'Cache-Control', 'no-store')
 
   try {
-    const session = await requireVerifiedSession(event)
+    return await withDemoAccess(async () => {
+      const session = await requireVerifiedSession(event)
 
-    if (event.method === 'PUT' && !checkAuthOrigin(event)) {
-      setResponseStatus(event, 403)
+      if (event.method === 'PUT' && !checkAuthOrigin(event)) {
+        setResponseStatus(event, 403)
 
-      return {
-        error: { code: 'FORBIDDEN_ORIGIN' },
+        return {
+          error: { code: 'FORBIDDEN_ORIGIN' },
+        }
       }
-    }
 
-    const expectedAccount = getHeader(event, 'x-expected-account-id')
+      const expectedAccount = getHeader(event, 'x-expected-account-id')
 
-    // This is a precondition, never an owner selector: the session still owns the operation.
-    if ((event.method === 'PUT' || expectedAccount !== undefined) && expectedAccount !== session.user.id) {
-      setResponseStatus(event, 409)
+      // This is a precondition, never an owner selector: the session still owns the operation.
+      if ((event.method === 'PUT' || expectedAccount !== undefined) && expectedAccount !== session.user.id) {
+        setResponseStatus(event, 409)
 
-      return {
-        error: { code: 'ACCOUNT_CHANGED' },
+        return {
+          error: { code: 'ACCOUNT_CHANGED' },
+        }
       }
-    }
 
-    return await operation(session.user.id)
+      return await operation(session.user.id)
+    })
   } catch (error) {
     const status = isError(error) && [401, 403].includes(error.statusCode)
       ? error.statusCode

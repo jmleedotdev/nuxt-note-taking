@@ -1,7 +1,36 @@
 import { spawnSync } from 'node:child_process'
 import { expect, test } from '@nuxt/test-utils/playwright'
+import postgres from 'postgres'
 
 const password = 'PublicTest1!'
+
+test('midnight expiration sends a stale editor to login without persisting unsaved changes', async ({ page, goto }) => {
+  await goto('/login', { waitUntil: 'hydration' })
+  await page.getByLabel('Email Address', { exact: true }).fill('demo1@email.test')
+  await page.getByLabel('Password', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Login', exact: true }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await page.getByRole('button', { name: 'Create New Note', exact: true }).filter({ visible: true }).click()
+  await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Stale midnight draft')
+  await page.getByRole('textbox', { name: 'Note content', exact: true }).fill('Never persist these unsaved words')
+  expect((await page.request.post('/__test/demo-lifecycle', {
+    data: { advanceDay: true },
+  })).status()).toBe(200)
+  // No forced refresh: the idle editor discovers expiration on its next save.
+  await page.getByRole('button', { name: 'Save Note', exact: true }).filter({ visible: true }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByRole('dialog', { name: 'Discard unsaved note?' })).toHaveCount(0)
+  await page.getByLabel('Email Address', { exact: true }).fill('demo1@email.test')
+  await page.getByLabel('Password', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Login', exact: true }).click()
+  await expect(page).toHaveURL(/\/$/)
+
+  const notes = await (await page.request.get('/api/notes')).json()
+
+  expect(notes.notes).toHaveLength(3)
+  expect(JSON.stringify(notes)).not.toContain('Stale midnight draft')
+  expect(JSON.stringify(notes)).not.toContain('Never persist these unsaved words')
+})
 
 test('capacity feedback preserves the draft and saving recovers after a confirmed deletion', async ({ page, goto }) => {
   await goto('/login', { waitUntil: 'hydration' })
@@ -76,7 +105,18 @@ test('capacity feedback preserves the draft and saving recovers after a confirme
   }
 })
 
-test.beforeAll(() => {
+test.beforeEach(async () => {
+  const sql = postgres(process.env.DATABASE_URL!)
+
+  try {
+    // Rate-limit policy is tested at HTTP; keep browser journeys independent.
+    await sql`DELETE FROM registration_limit`
+  } finally {
+    await sql.end()
+  }
+})
+
+test.beforeAll(async () => {
   const database = new URL(process.env.DATABASE_URL!)
 
   if (!database.pathname.startsWith('/notes_test_'))
@@ -94,6 +134,15 @@ test.beforeAll(() => {
   })
 
   expect(result.status, result.stderr).toBe(0)
+
+  const sql = postgres(database.href)
+
+  try {
+    await sql`CREATE TABLE IF NOT EXISTS test_demo_clock (instant timestamptz NOT NULL)`
+    await sql`INSERT INTO test_demo_clock SELECT '2030-01-01T23:59:59Z'::timestamptz WHERE NOT EXISTS (SELECT FROM test_demo_clock)`
+  } finally {
+    await sql.end()
+  }
 })
 
 test('ordinary demo login, restricted navigation, settings, and responsive full-width notice', async ({ page, goto }) => {

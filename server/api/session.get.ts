@@ -1,9 +1,10 @@
 import { isError } from 'h3'
 import { requireVerifiedSession } from '../auth/session'
+import { withDemoAccess } from '../demo/lifecycle'
 
 export default defineEventHandler(async (event) => {
   try {
-    return await requireVerifiedSession(event)
+    return await withDemoAccess(() => requireVerifiedSession(event))
   } catch (error) {
     if (isError(error) && [401, 403].includes(error.statusCode)) {
       setResponseStatus(event, error.statusCode)

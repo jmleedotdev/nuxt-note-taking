@@ -1,6 +1,7 @@
 import { loginSchema } from '../../shared/schemas/registration'
 import { admitAuth } from '../auth/http'
 import { forwardAuthCookies } from '../auth/session'
+import { withDemoAccess } from '../demo/lifecycle'
 
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
@@ -11,7 +12,7 @@ export default defineEventHandler(async (event) => {
     if ('response' in admitted)
       return admitted.response
 
-    const response = await admitted.service.login(admitted.data.email, admitted.data.password, admitted.headers)
+    const response = await withDemoAccess(() => admitted.service.login(admitted.data.email, admitted.data.password, admitted.headers))
 
     forwardAuthCookies(event, response)
 

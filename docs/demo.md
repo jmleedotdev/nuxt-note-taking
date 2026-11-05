@@ -1,6 +1,6 @@
 # Portfolio demo specification
 
-Status: agreed behavior; not yet implemented or deployed.
+Status: agreed behavior; account provisioning, restrictions, capacity, and request-time daily lifecycle implemented. Hosted deployment and scheduled invocation remain follow-ups.
 
 ## Purpose and hosting
 
@@ -49,6 +49,20 @@ The reset must be atomic, safe to retry, and coordinated with concurrent login a
 
 An expired session is rejected on its next server request and the visitor returns to login. Unsaved work may be lost; do not promise that an idle browser clears immediately at midnight.
 
+## Implemented lifecycle coordination
+
+`server/demo/lifecycle.ts` supplies `ensureDemoDay()` for request-time enforcement and the future authenticated scheduler. It requires `APP_ENV=demo`, validates both fixed, verified identities, and changes only their notes, preferences, and sessions. Baseline content is shared with create-only provisioning. Credentials and account rows are never replaced.
+
+The committed `demo_lifecycle` migration records the last completed ISO UTC day. PostgreSQL's `clock_timestamp()` is the authority; application-instance clocks and login times do not select the reset period. One transaction-scoped advisory lock serializes provisioning, restoration, login, session authorization, and complete protected note/preference operations across instances. This deliberately favors simple correctness over parallel throughput for the two shared demo accounts. Keep any future protected operations inside `withDemoAccess()` as well.
+
+Restoration commits before application services can read the baseline. Access then reacquires the lock and rechecks the day before authorizing: if midnight intervened, it retries restoration first. The lock remains held until the entire operation finishes, so a prior-day operation cannot write after the new baseline. Operations spanning midnight return temporary unavailability; login cookies are not forwarded in that case. The next request restores the current day and revokes the prior sessions.
+
+Lock waiters use a separate pool from auth/notes/preferences work to avoid starving a lock holder of database connections. Only transaction-scoped locks are used, not connection/session-scoped locks. Hosted transaction-pooler compatibility, connection budgets, TLS, and runtime behavior still require deployment validation.
+
+If a reset transaction fails, both accounts and the completed-day record roll back. Login and protected APIs deny access temporarily. Resolve the database/configuration/identity failure and retry; no destructive replay of missed intermediate days is needed. Do not delete the completed-day record to force a reset. No public manual-reset endpoint is provided.
+
+Tests replace only the clock module through test configuration and mount a disposable lifecycle-control route. PostgreSQL triggers/gates reproduce rollback and in-flight SQL races. These fixtures are not registered by runtime configuration. The browser test leaves a dirty editor idle across the simulated boundary, then verifies that its next save returns to login without saving the draft.
+
 ## Demo notice
 
 Display a full-width demo notice bar above the existing application header on desktop and mobile, on the demo login page and authenticated screens. This is the agreed meaning of "superbar" in the discussion, not an existing component name.
@@ -69,13 +83,12 @@ Official documentation checked during design:
 
 ## Implementation and validation considerations
 
-These are engineering follow-ups, not existing capabilities:
+Remaining deployment follow-ups and validation responsibilities:
 
-- Support the explicit demo/no-mail configuration and safely provision verified accounts and their baseline.
 - Validate Vercel/Supabase connection pooling, transaction behavior, TLS, trusted client-IP handling, and runtime compatibility.
 - Apply committed database migrations through a controlled operator step, not every runtime startup.
 - Test server-side restrictions through direct API requests, account isolation, concurrent quota enforcement, duplicate resets, missed scheduled runs, and reset/login/write races.
 - Test the notice on desktop/mobile and expired-session handling with unsaved edits.
 - Document deployment, provisioning, reset recovery, public credentials, and free-tier limitations before publishing the demo.
 
-Runtime implementation, hosting provisioning, and deployment are outside this completed discussion.
+Hosted provisioning, scheduler authentication, and deployment are delivered separately from the request-time lifecycle.

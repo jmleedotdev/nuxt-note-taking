@@ -12,7 +12,7 @@ export function useAppearance() {
   const status = useState<'idle' | 'loading' | 'ready' | 'error'>('appearance-status', () => 'idle')
   const revision = useState('appearance-revision', () => 0)
   const saving = useState('appearance-saving', () => false)
-  const request = useRequestFetch()
+  const request = useDemoRequest()
 
   function remember(value: Appearance) {
     applied.value = { ...value }
@@ -74,7 +74,7 @@ export function useAppearance() {
     saving.value = true
 
     try {
-      const saved = appearanceSchema.parse(await $fetch('/api/preferences', {
+      const saved = appearanceSchema.parse(await request('/api/preferences', {
         method: 'PUT',
         body: value,
         headers: { 'x-expected-account-id': owner.value },
