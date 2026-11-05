@@ -1,4 +1,4 @@
-# Personal Notes
+# Nuxt Notes
 
 A private note-taking space where each user owns their notes and tags. Notes are not shared with other users.
 
@@ -20,3 +20,13 @@ A saved note that is not archived. The interface's All Notes list contains activ
 **Deletion**:
 The permanent removal of a note after confirmation, without a trash or recovery feature.
 _Avoid_: Archiving
+
+**Demo account**:
+A permanent, publicly accessible account shared by portfolio visitors. Its notes are separate from other accounts, but shared by everyone using that demo account.
+
+**Demo baseline**:
+The initial sample notes and appearance preferences restored to a demo account after each daily demo reset.
+
+**Daily demo reset**:
+The daily restoration of demo accounts to their baseline and expiration of existing demo sessions. The accounts and their published login credentials remain available.
+_Avoid_: Account expiration

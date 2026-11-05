@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import { isDemoAccount } from '../demo/accounts'
 import { authService } from './service'
 
 export function forwardAuthCookies(event: H3Event, response: Response) {
@@ -56,7 +57,7 @@ export async function requireVerifiedSession(event: H3Event): Promise<Authentica
     })
   }
 
-  if (!result) {
+  if (!result || (authService().config.APP_ENV === 'demo' && !isDemoAccount(result.user))) {
     throw createError({
       statusCode: 401,
       data: {

@@ -12,6 +12,37 @@ Nuxt Notes is a private note-taking app where each user owns their notes and tag
 
 Built with Nuxt 4, Vue 3, Nuxt UI, and Tailwind CSS, with Better Auth for authentication and PostgreSQL accessed through Drizzle ORM.
 
+## Public portfolio demo
+
+Use the ordinary email/password login form with either public account:
+
+| Email              | Password    |
+| ------------------ | ----------- |
+| `demo1@email.test` | `password1` |
+| `demo2@email.test` | `password2` |
+
+**These passwords are intentionally public and demo-only. Never reuse them for any other account or service.** Everyone using the same account shares its notes and appearance settings; the two accounts have separate data. Do not enter personal, confidential, or sensitive information. Sessions can expire and unsaved work can be lost.
+
+Demo mode disables registration, verification/resend, password recovery/reset, and password changes. Each account starts with three different sample notes and System/Inter appearance. Samples can be edited, archived, restored, and deleted like other notes.
+
+### Operator provisioning (create-only)
+
+Use a **dedicated demo database**, never a private application database. Inspect the target host/project and database name before proceeding. Provisioning is an explicit operator action, not a startup hook or public endpoint.
+
+1. Apply the committed migrations to the selected database using `pnpm db:migrate` with an explicitly exported `DATABASE_URL`. Check `drizzle.config.ts` and your environment first; do not accidentally use a local `.env` target.
+2. Export `APP_ENV=demo` and the dedicated `DATABASE_URL`. Set `DEMO_PASSWORD_1` and `DEMO_PASSWORD_2` to the corresponding public passwords in the table above. These variables are needed only for provisioning; do not add them to application runtime configuration.
+3. Run `pnpm demo:provision --confirm-database <exact-database-name>`. The database name must match the URL's final path component (for example, `notes_demo` or `postgres`); this acknowledgement does not replace checking the host/project.
+4. Configure runtime `APP_ENV=demo`, `APP_URL` (the application's origin), `DATABASE_URL`, and a unique private `APP_AUTH_SECRET` of at least 32 characters. Build/start normally. Demo mode explicitly selects no-mail behavior: neither `MAIL_MODE`, `MAILTRAP_URL`, a local inbox, nor outbound credentials are needed. Do not change `APP_ENV` to `test` to operate the demo.
+5. Log in with both public accounts and confirm each has its own three sample notes. Do not run destructive automated tests against this database.
+
+The procedure creates only the two designated identities, their password credentials, and their initial notes/preferences in one transaction. It does **not** delete unrelated accounts or admit them to the demo. It refuses address/identity collisions and changed credentials instead of adopting or repairing an existing account. Re-running with the same passwords preserves account IDs, sessions, deleted/edited samples, visitor-created notes, and appearance changes. A failure rolls back the entire provisioning transaction; investigate the target/configuration and retry, rather than deleting live data. The command intentionally does not load `.env` files automatically.
+
+**Incremental implementation:** the notice describes the intended daily reset at 00:00 UTC. This baseline ticket does not yet implement scheduled/request-time reset, midnight session expiry, note capacity, shared-account rate-limit adaptation, or hosted deployment. Existing seven-day session and login limits still apply. Do not advertise automatic daily recovery as operational until the lifecycle follow-up is deployed. Provisioning is not a reset command.
+
+### Demo checks
+
+Follow the disposable PostgreSQL setup linked below. `pnpm test:http test/http/demo.test.ts` tests the real Nuxt APIs with committed migrations in isolated data. `pnpm test:browser:demo` runs the focused desktop/tablet/mobile journey in ordinary demo mode against a disposable database, without mail or test-only HTTP fixtures. `pnpm test:browser` retains the normal non-demo journeys. Never point either test command at the public deployment.
+
 ## Local development setup
 
 The app runs on your host machine. Docker Compose runs PostgreSQL and Mailtrap Local, which captures development email instead of delivering it to recipients.
@@ -52,13 +83,13 @@ Paste the generated value into `APP_AUTH_SECRET` in `.env`. The secret must be a
 
 The remaining example values work with the included Compose services:
 
-| Variable | Local value |
-| --- | --- |
-| `APP_ENV` | `development` |
-| `APP_URL` | `http://localhost:3000` |
+| Variable       | Local value                                     |
+| -------------- | ----------------------------------------------- |
+| `APP_ENV`      | `development`                                   |
+| `APP_URL`      | `http://localhost:3000`                         |
 | `DATABASE_URL` | `postgres://user:password@127.0.0.1:5432/notes` |
-| `MAIL_MODE` | `local` |
-| `MAILTRAP_URL` | `http://127.0.0.1:3550` |
+| `MAIL_MODE`    | `local`                                         |
+| `MAILTRAP_URL` | `http://127.0.0.1:3550`                         |
 
 Leave `APP_TRUSTED_PROXY_IP` unset for direct local connections. If you change the database credentials or port in Compose, update `DATABASE_URL` to match.
 
