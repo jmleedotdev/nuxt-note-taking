@@ -26,6 +26,14 @@
   font-display: swap;
 }
 
+@layer base {
+  a:focus-visible {
+    outline: 2px solid var(--color-blue-500);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
 :root {
   --app-font: 'Inter', sans-serif;
 }

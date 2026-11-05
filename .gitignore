@@ -30,3 +30,6 @@ coverage/
 # Playwright
 playwright-report/
 test-results/
+
+# Generated visual audit screenshots (keep captures outside Git)
+/docs/audits/**/evidence/**/*.png

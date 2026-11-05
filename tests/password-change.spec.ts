@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { expect, test } from '@nuxt/test-utils/playwright'
+import { expectKeyboardOrder, togglePasswordWithKeyboard } from './helpers/keyboard'
 
 test('settings password change preserves failure feedback and requires fresh login on every device', async ({ page, goto, browser }, testInfo) => {
   await goto('/login', { waitUntil: 'hydration' })
@@ -48,6 +49,23 @@ test('settings password change preserves failure feedback and requires fresh log
     const replacement = page.getByLabel('New Password', { exact: true })
     const confirmation = page.getByLabel('Confirm New Password', { exact: true })
     const save = page.getByRole('button', { name: 'Save Password', exact: true })
+
+    await expectKeyboardOrder(page, [
+      current,
+      page.getByRole('button', { name: 'Show old password', exact: true }),
+      replacement,
+      page.getByRole('button', { name: 'Show new password', exact: true }),
+      confirmation,
+      page.getByRole('button', { name: 'Show confirm new password', exact: true }),
+      save,
+    ])
+
+    for (const [input, label] of [
+      [current, 'old password'],
+      [replacement, 'new password'],
+      [confirmation, 'confirm new password'],
+    ] as const)
+      await togglePasswordWithKeyboard(page, input, label)
 
     await expect(current).toBeVisible()
 

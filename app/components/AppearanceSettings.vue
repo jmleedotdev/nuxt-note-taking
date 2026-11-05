@@ -220,7 +220,7 @@ async function submit() {
             </p>
 
             <div class="flex justify-end">
-              <UButton type="submit" :loading="appearance.saving.value" :disabled="accountChanged || appearance.status.value !== 'ready'" class="min-h-10.5 bg-blue-500 px-4 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700">
+              <UButton type="submit" size="xl" :loading="appearance.saving.value" :disabled="accountChanged || appearance.status.value !== 'ready'">
                 Apply Changes
               </UButton>
             </div>

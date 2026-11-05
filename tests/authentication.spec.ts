@@ -31,7 +31,7 @@ test('signup, unverified recovery, verification, login, SSR shell, and logout', 
   })
   await page.getByLabel('Email Address', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill('Abcdef1!')
-  await page.getByRole('button', { name: 'Login', exact: true }).click()
+  await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('heading', { name: 'All Notes', exact: true })).toBeVisible()
   await expect(page.getByText('You don’t have any notes yet.', { exact: false })).toBeVisible()
@@ -56,6 +56,52 @@ test('signup, unverified recovery, verification, login, SSR shell, and logout', 
   })
 
   expect(rejected.status()).toBe(401)
+})
+
+test('login keyboard order keeps credentials together, reverses logically, and operates reveal and recovery', async ({ page, goto }) => {
+  await goto('/login', { waitUntil: 'hydration' })
+
+  const email = page.getByLabel('Email Address', { exact: true })
+  const password = page.getByLabel('Password', { exact: true })
+  const reveal = page.getByRole('button', { name: 'Show password', exact: true })
+  const login = page.getByRole('button', { name: 'Login', exact: true })
+  const recovery = page.getByRole('link', { name: 'Forgot password?' })
+  const signup = page.getByRole('link', { name: 'Sign Up', exact: true })
+  const order = [
+    email,
+    password,
+    reveal,
+    login,
+    recovery,
+    signup,
+  ]
+
+  await email.focus()
+
+  for (const control of order) {
+    await expect(control).toBeFocused()
+    await expect(control).toHaveCSS('outline-style', 'solid')
+    await page.keyboard.press('Tab')
+  }
+
+  await page.keyboard.press('Shift+Tab')
+
+  for (const control of [...order].reverse()) {
+    await expect(control).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+  }
+
+  await password.fill('Keyboard1!')
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Space')
+  await expect(password).toHaveAttribute('type', 'text')
+  await expect(page.getByRole('button', { name: 'Hide password' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(password).toHaveAttribute('type', 'password')
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/forgot-password$/)
 })
 
 test('login asks for a password without listing signup requirements', async ({ page, goto }) => {

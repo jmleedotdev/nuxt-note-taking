@@ -149,7 +149,7 @@ async function save(event: FormSubmitEvent<NoteInput>) {
     </UButton>
 
     <UFormField name="title" label="Title" :ui="{ label: 'sr-only' }">
-      <UInput v-model="state.title" placeholder="Enter a title…" class="w-full" variant="none" :ui="{ base: 'px-0 text-2xl font-bold tracking-tight md:text-2xl' }" :disabled="pending" autofocus />
+      <UInput v-model="state.title" placeholder="Enter a title…" class="w-full" variant="none" size="md" :ui="{ base: 'px-0 text-2xl font-bold tracking-tight md:text-2xl' }" :disabled="pending" autofocus />
     </UFormField>
 
     <UFormField name="tags" label="Tags" orientation="horizontal" :error-pattern="/^tags\./" help="Separate tags with commas (e.g. Work, Planning)." :ui="{ wrapper: 'w-28.75 shrink-0', label: 'flex items-center gap-2 font-normal', container: 'min-w-0 flex-1', help: 'sr-only' }">
@@ -157,7 +157,7 @@ async function save(event: FormSubmitEvent<NoteInput>) {
         <UIcon name="i-app-tag" class="size-4" />Tags
       </template>
 
-      <UInput v-model="state.tags" placeholder="Add tags separated by commas" class="w-full" variant="none" :ui="{ base: 'px-0' }" :disabled="pending" />
+      <UInput v-model="state.tags" placeholder="Add tags separated by commas" class="w-full" variant="none" size="md" :ui="{ base: 'px-0' }" :disabled="pending" />
     </UFormField>
 
     <div class="flex gap-2 text-sm text-neutral-600 dark:text-neutral-300">

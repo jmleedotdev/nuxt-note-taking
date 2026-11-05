@@ -88,7 +88,7 @@ async function resend() {
         Haven’t received it? Check your spam folder, then request another message. Email submission does not guarantee delivery.
       </p>
 
-      <UButton type="button" block size="xl" :loading="pending" :disabled="pending || remaining > 0" class="justify-center bg-blue-500 text-neutral-0 hover:bg-blue-700" @click="resend">
+      <UButton type="button" block size="xl" :loading="pending" :disabled="pending || remaining > 0" @click="resend">
         {{ remaining > 0 ? `Send again (${remaining}s)` : 'Send again' }}
       </UButton>
 

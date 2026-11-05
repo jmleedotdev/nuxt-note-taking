@@ -3,8 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { expect, test } from '@nuxt/test-utils/playwright'
 
-// Evidence capture, not a pixel-equality test. Opt in so normal regression runs
-// do not rewrite the checked-in before-change baseline.
+// Evidence capture, not a pixel-equality test. Opt in with DESIGN_AUDIT_OUTPUT
+// pointing outside the repository; generated screenshots are review artifacts.
 for (const theme of ['light', 'dark'] as const) {
   test(`design audit evidence (${theme})`, async ({ page, goto }, testInfo) => {
     test.skip(!process.env.DESIGN_AUDIT_OUTPUT, 'Set DESIGN_AUDIT_OUTPUT to capture an isolated visual baseline')
@@ -90,10 +90,15 @@ for (const theme of ['light', 'dark'] as const) {
       data: { email },
     })).status()).toBe(202)
 
-    const recoveryMail = await (await page.request.get('/__test/mail')).json() as { to: string, subject: string, text: string }[]
-    const recovery = recoveryMail.find(message => message.to === email && message.subject.includes('Reset'))
+    let recovery: { text: string } | undefined
 
-    expect(recovery).toBeDefined()
+    await expect.poll(async () => {
+      const recoveryMail = await (await page.request.get('/__test/mail')).json() as { to: string, subject: string, text: string }[]
+
+      recovery = recoveryMail.find(message => message.to === email && message.subject.includes('Reset'))
+
+      return Boolean(recovery)
+    }).toBe(true)
 
     const link = new URL(recovery!.text.match(/https?:\/\/\S+/)![0])
 
@@ -166,6 +171,53 @@ for (const theme of ['light', 'dark'] as const) {
     // Existing project widths are useful boundary checks as well as reference sizes.
     await page.setViewportSize(testInfo.project.use.viewport!)
     await capture('project-width-new-editor')
+
+    // Optional follow-up evidence for shared controls using real account preferences.
+    if (process.env.DESIGN_AUDIT_FONTS) {
+      await page.setViewportSize(viewport)
+
+      for (const font of ['noto-serif', 'source-code-pro']) {
+        await visit('/?panel=settings&setting=font')
+        await page.getByRole('radio', {
+          name: font === 'noto-serif'
+            ? /Noto Serif/
+            : /Source Code Pro/,
+        }).click()
+        await page.getByRole('button', { name: 'Apply Changes' }).click()
+        await expect(page.getByRole('status').filter({ hasText: 'Appearance saved to your account.' })).toBeVisible()
+
+        for (const [name, path] of [
+          ['settings-font', '/?panel=settings&setting=font'],
+          ['settings-password', '/?panel=settings&setting=password'],
+          ['editor', `/?note=${note.id}`],
+        ]) {
+          await visit(path!)
+          await expect(page.locator('html')).toHaveAttribute('data-font', font)
+          expect(await page.evaluate(async family => (await document.fonts.load(`14px "${family}"`)).length, font === 'noto-serif'
+            ? 'Noto Serif'
+            : 'Source Code Pro')).toBeGreaterThan(0)
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+          await capture(`${font}-${name}`)
+        }
+
+        await visit('/?panel=settings')
+        await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).last().click()
+        await expect(page).toHaveURL(/\/login$/)
+
+        for (const path of ['/login', '/signup']) {
+          await visit(path)
+          await expect(page.locator('html')).toHaveAttribute('data-font', font)
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+          await capture(`${font}-${path.slice(1)}`)
+        }
+
+        expect((await page.request.post('/api/login', {
+          headers,
+          data: { email, password: 'Abcdef1!' },
+        })).status()).toBe(200)
+      }
+    }
+
     await writeFile(resolve(directory, 'observations.json'), `${JSON.stringify(observations, null, 2)}\n`)
   })
 }

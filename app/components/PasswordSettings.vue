@@ -55,15 +55,15 @@ async function submit(event: FormSubmitEvent<z.output<typeof changePasswordSchem
     </h2>
 
     <UForm :schema="changePasswordSchema" :state="state" :validate-on="[]" class="mt-5 space-y-6 sm:mt-6" @submit="submit">
-      <UFormField v-for="field in fields" :key="field.name" :name="field.name" :label="field.label" :help="field.name === 'newPassword' ? 'At least 8 characters' : undefined" :ui="{ label: 'font-medium leading-[1.2] text-neutral-950 dark:text-neutral-0', container: 'mt-1.5', help: 'mt-2 flex items-center gap-2 text-xs leading-[1.2] text-neutral-600 dark:text-neutral-400' }">
+      <UFormField v-for="field in fields" :key="field.name" :name="field.name" :label="field.label" :help="field.name === 'newPassword' ? 'At least 8 characters' : undefined" :ui="{ help: 'flex items-center gap-2' }">
         <template v-if="field.name === 'newPassword'" #help="{ help }">
           <UIcon name="i-app-info" class="size-3.5 shrink-0" aria-hidden="true" />
           {{ help }}
         </template>
 
-        <UInput v-model="state[field.name]" :type="showPassword[field.name] ? 'text' : 'password'" :autocomplete="field.autocomplete" class="w-full" size="xl" :ui="{ base: 'h-11 rounded-lg bg-transparent text-neutral-950 ring-neutral-300 dark:bg-transparent dark:text-neutral-0 dark:ring-neutral-600' }" :disabled="pending">
+        <UInput v-model="state[field.name]" :type="showPassword[field.name] ? 'text' : 'password'" :autocomplete="field.autocomplete" class="w-full" :disabled="pending">
           <template #trailing>
-            <UButton type="button" color="neutral" variant="link" class="text-neutral-500 dark:text-neutral-400" :icon="showPassword[field.name] ? 'i-app-hide-password' : 'i-app-show-password'" :aria-label="`${showPassword[field.name] ? 'Hide' : 'Show'} ${field.label.toLowerCase()}`" :aria-pressed="showPassword[field.name]" :disabled="pending" @click="showPassword[field.name] = !showPassword[field.name]" />
+            <UButton type="button" color="neutral" variant="link" :icon="showPassword[field.name] ? 'i-app-hide-password' : 'i-app-show-password'" :aria-label="`${showPassword[field.name] ? 'Hide' : 'Show'} ${field.label.toLowerCase()}`" :aria-pressed="showPassword[field.name]" :disabled="pending" @click="showPassword[field.name] = !showPassword[field.name]" />
           </template>
         </UInput>
       </UFormField>
@@ -77,7 +77,7 @@ async function submit(event: FormSubmitEvent<z.output<typeof changePasswordSchem
       </p>
 
       <div class="flex justify-end">
-        <UButton type="submit" :loading="pending" class="min-h-10.5 bg-blue-500 px-4 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700">
+        <UButton type="submit" size="xl" :loading="pending">
           Save Password
         </UButton>
       </div>

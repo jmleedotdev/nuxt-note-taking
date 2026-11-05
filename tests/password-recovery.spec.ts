@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { expect, test } from '@nuxt/test-utils/playwright'
+import { expectKeyboardOrder, togglePasswordWithKeyboard } from './helpers/keyboard'
 
 test('recovers through captured mail and requires fresh login on every device', async ({ page, goto, browser }) => {
   test.setTimeout(60000)
@@ -34,8 +35,13 @@ test('recovers through captured mail and requires fresh login on every device', 
     await page.reload()
     await page.getByRole('link', { name: 'Forgot password?' }).click()
     await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible()
+    await expectKeyboardOrder(page, [
+      page.getByLabel('Email Address', { exact: true }),
+      page.getByRole('button', { name: 'Send reset link', exact: true }),
+      page.getByRole('link', { name: 'Back to login', exact: true }),
+    ])
     await page.getByLabel('Email Address', { exact: true }).fill(email)
-    await page.getByRole('button', { name: 'Send reset link', exact: true }).click()
+    await page.keyboard.press('Enter')
     await expect(page.getByRole('status').filter({ hasText: 'If an account exists' })).toBeVisible()
     await expect(page.getByRole('button', { name: /Send again \(/ })).toBeDisabled()
 
@@ -54,6 +60,17 @@ test('recovers through captured mail and requires fresh login on every device', 
 
     await goto(reset!.pathname + reset!.search, { waitUntil: 'hydration' })
     await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
+    await expectKeyboardOrder(page, [
+      page.getByLabel('New Password', { exact: true }),
+      page.getByRole('button', { name: 'Show new password', exact: true }),
+      page.getByLabel('Confirm Password', { exact: true }),
+      page.getByRole('button', { name: 'Show confirm password', exact: true }),
+      page.getByRole('button', { name: 'Reset password', exact: true }),
+      page.getByRole('link', { name: 'Request a new link', exact: true }),
+      page.getByRole('link', { name: 'Back to login', exact: true }),
+    ])
+    await togglePasswordWithKeyboard(page, page.getByLabel('New Password', { exact: true }), 'new password')
+    await togglePasswordWithKeyboard(page, page.getByLabel('Confirm Password', { exact: true }), 'confirm password')
     await page.getByLabel('New Password', { exact: true }).fill('has spaces')
     await page.getByLabel('Confirm Password', { exact: true }).fill('has spaces')
     await page.getByRole('button', { name: 'Reset password', exact: true }).click()
