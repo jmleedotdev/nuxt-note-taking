@@ -10,6 +10,14 @@ export default defineEventHandler(event => notesHTTP(event, async (ownerId) => {
 
   const note = await notesService().create(ownerId, parsed.data)
 
+  if ('error' in note) {
+    setResponseStatus(event, 409)
+
+    return {
+      error: { code: note.error },
+    }
+  }
+
   setResponseStatus(event, 201)
 
   return note

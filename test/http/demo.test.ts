@@ -313,5 +313,87 @@ describe('demo access over real HTTP', async () => {
 
     expect(rerun.status, rerun.stderr).toBe(0)
     expect((await (await request('/api/notes', undefined, first)).json()).notes).toHaveLength(4)
+
+    const note = await created.json()
+
+    expect((await request(`/api/notes/${note.id}`, { version: note.version }, first, 'DELETE')).status).toBe(204)
+  })
+
+  it('counts samples and archived notes toward ten saved notes and frees capacity only on deletion', async () => {
+    const cookie = await login(emails[0]!)
+    const baseline = (await (await request('/api/notes', undefined, cookie)).json()).notes
+
+    expect(baseline).toHaveLength(3)
+
+    let sample = await (await request(`/api/notes/${baseline[0].id}/archive`, { version: baseline[0].version }, cookie)).json()
+
+    expect(sample.isArchived).toBe(true)
+
+    for (let index = 0; index < 7; index++) {
+      expect((await request('/api/notes', { title: `Additional ${index}`, content: '', tags: [] }, cookie)).status).toBe(201)
+    }
+
+    const full = await request('/api/notes', { title: 'Over capacity', content: '', tags: [] }, cookie)
+
+    expect(full.status).toBe(409)
+    expect(await full.json()).toEqual({
+      error: { code: 'NOTE_CAPACITY_REACHED' },
+    })
+    expect((await (await request('/api/notes', undefined, cookie)).json()).notes).toHaveLength(9)
+    expect((await (await request('/api/notes?archived=true', undefined, cookie)).json()).notes).toHaveLength(1)
+
+    sample = await (await request(`/api/notes/${sample.id}/restore`, { version: sample.version }, cookie)).json()
+    expect(sample.isArchived).toBe(false)
+
+    const edited = await request(`/api/notes/${sample.id}`, {
+      title: 'Edited sample at capacity',
+      content: 'Still editable',
+      tags: ['Full'],
+      version: sample.version,
+    }, cookie, 'PUT')
+
+    expect(edited.status).toBe(200)
+    sample = await edited.json()
+    expect(sample.title).toBe('Edited sample at capacity')
+    expect((await request('/api/notes', { title: 'Still full' }, cookie)).status).toBe(409)
+    expect((await request('/api/notes', { title: '' }, cookie)).status).toBe(422)
+    expect((await request('/api/notes', {
+      title: 'Too large',
+      content: 'a'.repeat(650001),
+    }, cookie)).status).toBe(413)
+    expect((await request(`/api/notes/${sample.id}`, { version: sample.version }, cookie, 'DELETE')).status).toBe(204)
+    expect((await request('/api/notes', { title: 'Replacement after deletion' }, cookie)).status).toBe(201)
+    expect((await (await request('/api/notes', undefined, cookie)).json()).notes).toHaveLength(10)
+  })
+
+  it('serializes concurrent creates from separate sessions without borrowing another account’s capacity', async () => {
+    const firstSession = await login(emails[1]!)
+    const secondSession = await login(emails[1]!)
+    const baseline = (await (await request('/api/notes', undefined, firstSession)).json()).notes
+
+    expect(baseline).toHaveLength(3)
+    expect((await request(`/api/notes/${baseline[0].id}/archive`, { version: baseline[0].version }, firstSession)).status).toBe(200)
+
+    const responses = await Promise.all(Array.from({ length: 24 }, (_, index) => request('/api/notes', {
+      title: `Concurrent ${index}`,
+    }, index % 2
+      ? firstSession
+      : secondSession)))
+
+    expect(responses.filter(response => response.status === 201)).toHaveLength(7)
+    expect(responses.filter(response => response.status === 409)).toHaveLength(17)
+
+    for (const response of responses.filter(response => response.status === 409)) {
+      expect(await response.json()).toEqual({
+        error: { code: 'NOTE_CAPACITY_REACHED' },
+      })
+    }
+
+    const active = (await (await request('/api/notes', undefined, firstSession)).json()).notes
+    const archived = (await (await request('/api/notes?archived=true', undefined, firstSession)).json()).notes
+
+    expect(active).toHaveLength(9)
+    expect(archived).toHaveLength(1)
+    expect(active.filter((note: { title: string }) => note.title.startsWith('Concurrent '))).toHaveLength(7)
   })
 })

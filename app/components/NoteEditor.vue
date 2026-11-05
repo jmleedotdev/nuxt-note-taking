@@ -128,6 +128,12 @@ async function save(event: FormSubmitEvent<NoteInput>) {
   } catch (error) {
     const failure = error as { data?: { error?: { code?: string, fields?: Record<string, string> } } }
 
+    if (failure.data?.error?.code === 'NOTE_CAPACITY_REACHED') {
+      message.value = 'This demo account already has ten saved notes, including samples and archived notes. Delete a saved note to make room; archiving does not free space. Your draft is still here. Then try Save Note again.'
+
+      return
+    }
+
     if (conflict(failure.data?.error?.code))
       return
 

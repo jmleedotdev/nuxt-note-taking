@@ -74,6 +74,15 @@ describe('private notes HTTP contract', async () => {
     },
   })
 
+  it('does not restrict non-demo accounts to ten saved notes', async () => {
+    const { cookie } = await account()
+
+    for (let index = 0; index < 12; index++)
+      expect((await post('/api/notes', { title: `Unrestricted ${index}` }, cookie)).status).toBe(201)
+
+    expect((await (await get('/api/notes', cookie)).json()).notes).toHaveLength(12)
+  })
+
   it('searches saved titles, content and tags literally within the owner and archive scope', async () => {
     const { cookie } = await account()
     const saved = []

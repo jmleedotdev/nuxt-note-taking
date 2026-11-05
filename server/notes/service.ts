@@ -1,7 +1,9 @@
 import type { NoteInput } from '../../shared/schemas/note'
 import type { Note } from '../../shared/types/note'
-import { and, desc, eq, ne, or, sql } from 'drizzle-orm'
+import { and, count, desc, eq, ne, or, sql } from 'drizzle-orm'
+import { authConfig } from '../auth/config'
 import { createDatabase } from '../db/client'
+import { user } from '../db/schema/auth'
 import { notes } from '../db/schema/notes'
 
 function toNote(row: typeof notes.$inferSelect): Note {
@@ -21,6 +23,26 @@ function createNotesService() {
 
   return {
     async create(ownerId: string, input: NoteInput) {
+      if (authConfig().APP_ENV === 'demo') {
+        return db.transaction(async (tx) => {
+          // A per-account database lock serializes creates across instances.
+          // Count in a separate statement after acquiring it so READ COMMITTED
+          // sees the preceding creator's committed insert, including archives.
+          await tx.select({ id: user.id }).from(user).where(eq(user.id, ownerId)).for('update')
+
+          const [saved] = await tx.select({
+            count: count(),
+          }).from(notes).where(eq(notes.ownerId, ownerId))
+
+          if (saved!.count >= 10)
+            return { error: 'NOTE_CAPACITY_REACHED' } as const
+
+          const [row] = await tx.insert(notes).values({ ...input, ownerId }).returning()
+
+          return toNote(row!)
+        })
+      }
+
       const [row] = await db.insert(notes).values({ ...input, ownerId }).returning()
 
       return toNote(row!)
