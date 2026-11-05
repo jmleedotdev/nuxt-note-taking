@@ -78,7 +78,11 @@ test('create, cancel, save, refresh and reopen preserve private paragraphs and t
     path: test.info().outputPath('saved-note.png'),
     fullPage: true,
   })
-  await page.getByRole('button', { name: 'Back to notes', exact: true }).click()
+
+  if (testInfo.project.name === 'desktop')
+    await page.getByRole('link', { name: 'All Notes', exact: true }).click()
+  else
+    await page.getByRole('button', { name: 'Back to notes', exact: true }).click()
   await page.getByRole('button', { name: 'My paragraphs', exact: true }).click()
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('My paragraphs')
 })

@@ -89,7 +89,8 @@ test('explicit Save and Cancel retain drafts on failures and guard navigation', 
   await expect(page.getByRole('dialog', { name: 'Discard unsaved note?' })).toBeVisible()
   await page.getByRole('button', { name: 'Keep writing', exact: true }).click()
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Keep this draft')
-  await page.getByRole('button', { name: 'Log out', exact: true }).click()
+
+  await page.getByRole('link', { name: 'Settings', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Discard unsaved note?' })).toBeVisible()
   await page.getByRole('button', { name: 'Keep writing', exact: true }).click()
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Keep this draft')

@@ -25,6 +25,12 @@ async function register(page: import('@playwright/test').Page, ip: string) {
   return email
 }
 
+async function logout(page: import('@playwright/test').Page) {
+  // Use app navigation, not the section-back link disabled during appearance saves.
+  await page.getByRole('link', { name: 'Settings', exact: true }).filter({ visible: true }).last().click()
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Log out', exact: true }).click()
+}
+
 async function settings(page: import('@playwright/test').Page, section: string) {
   await page.getByRole('link', { name: 'Settings', exact: true }).filter({ visible: true }).first().click()
   await page.getByRole('link', { name: section, exact: true }).filter({ visible: true }).click()
@@ -135,7 +141,7 @@ test('System follows device changes, keyboard controls save fonts, and public pa
     fullPage: true,
   })
 
-  await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
+  await logout(page)
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.locator('html')).toHaveClass(/dark/)
   await expect(page.getByLabel('Email Address', { exact: true })).toHaveCSS('font-family', /Source Code Pro/)
@@ -155,7 +161,7 @@ test('System follows device changes, keyboard controls save fonts, and public pa
   await register(page, `198.18.15.${ip! + 20}`)
   await expect(page.locator('body')).toHaveCSS('font-family', /Inter/)
   await expect(page.locator('html')).not.toHaveClass(/dark/)
-  await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
+  await logout(page)
   await page.getByLabel('Email Address', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill('Abcdef1!')
   await page.getByRole('button', { name: 'Login', exact: true }).click()
@@ -169,7 +175,7 @@ test('load, validation and persistence failures never claim a save or lose the c
 
   const email = await register(page, `198.18.15.${{ desktop: 51, tablet: 52, mobile: 53 }[testInfo.project.name]}`)
 
-  await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
+  await logout(page)
   await expect(page).toHaveURL(/\/login$/)
   await page.route('**/api/preferences', route => route.fulfill({
     status: 503,
@@ -240,12 +246,12 @@ test('a delayed save response from a logged-out account cannot replace the next 
   const ip = { desktop: 71, tablet: 72, mobile: 73 }[testInfo.project.name]!
   const first = await register(page, `198.18.15.${ip}`)
 
-  await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
+  await logout(page)
   await expect(page).toHaveURL(/\/login$/)
 
   const second = await register(page, `198.18.15.${ip + 10}`)
 
-  await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
+  await logout(page)
   await expect(page).toHaveURL(/\/login$/)
   await page.getByLabel('Email Address', { exact: true }).fill(first)
   await page.getByLabel('Password', { exact: true }).fill('Abcdef1!')
@@ -283,7 +289,7 @@ test('a delayed save response from a logged-out account cannot replace the next 
     await page.getByRole('button', { name: 'Apply Changes' }).click()
     await saved
     await expect(page.getByRole('radio', { name: /Source Code Pro/ })).toBeDisabled()
-    await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
+    await logout(page)
     await expect(page).toHaveURL(/\/login$/)
     await page.getByLabel('Email Address', { exact: true }).fill(second)
     await page.getByLabel('Password', { exact: true }).fill('Abcdef1!')
@@ -320,7 +326,7 @@ test('a stale tab cannot save into the account selected in another tab', async (
 
   try {
     await other.goto(new URL('/', page.url()).href)
-    await other.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
+    await logout(other)
     await expect(other).toHaveURL(/\/login$/)
     await register(other, `198.18.15.${ip + 10}`)
     await page.getByRole('button', { name: 'Apply Changes' }).click()

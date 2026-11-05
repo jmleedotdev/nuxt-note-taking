@@ -85,7 +85,7 @@ function settleDiscard(discard: boolean) {
 }
 
 async function logout() {
-  if (!await confirmDiscard())
+  if (pending.value || !await confirmDiscard())
     return
 
   pending.value = true
@@ -126,20 +126,6 @@ async function logout() {
       </p>
 
       <TagNavigation compact @reselect="search = ''" />
-
-      <div class="mt-auto space-y-3 pt-8">
-        <p class="break-all px-3 text-xs text-neutral-600 dark:text-neutral-400">
-          {{ authentication.session.value?.user.email }}
-        </p>
-
-        <UButton icon="i-app-logout" color="neutral" variant="ghost" :loading="pending" @click="logout">
-          Log out
-        </UButton>
-
-        <p v-if="message" role="alert" class="text-sm text-red-500">
-          {{ message }}
-        </p>
-      </div>
     </aside>
 
     <div class="min-w-0 flex-1">
@@ -157,10 +143,6 @@ async function logout() {
 
           <UButton to="/?panel=settings" icon="i-app-settings" color="neutral" variant="ghost" aria-label="Settings" />
         </div>
-
-        <UButton icon="i-app-logout" color="neutral" variant="ghost" class="xl:hidden" :loading="pending" @click="logout">
-          Log out
-        </UButton>
       </header>
 
       <main class="min-h-[calc(100dvh-4.5rem)] rounded-t-xl bg-neutral-0 px-4 pt-6 pb-24 sm:px-8 xl:min-h-[calc(100dvh-5rem)] xl:rounded-none xl:p-0 dark:bg-neutral-950">
@@ -172,7 +154,7 @@ async function logout() {
           {{ title }}
         </h1>
 
-        <p v-if="message" role="alert" class="mb-4 text-sm text-red-500 xl:hidden">
+        <p v-if="message" role="alert" class="mb-4 text-sm text-red-500 xl:px-8 xl:pt-4">
           {{ message }}
         </p>
 
@@ -185,7 +167,7 @@ async function logout() {
           <NuxtLink to="/?panel=settings&setting=color" class="underline">Open settings to try again.</NuxtLink>
         </p>
 
-        <AppearanceSettings v-if="settingsPanel" @logout="logout" />
+        <AppearanceSettings v-if="settingsPanel" :logout-pending="pending" @logout="logout" />
 
         <template v-else-if="tagsPanel">
           <TagNavigation class="xl:p-6" @reselect="search = ''" />

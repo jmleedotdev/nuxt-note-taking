@@ -116,7 +116,7 @@ for (const action of ['Archive Note', 'Delete Note']) {
     await expect(page).toHaveURL(/\/$/)
     await expect(page.getByRole('button', { name: 'Create New Note', exact: true }).filter({ visible: true })).toBeFocused()
 
-    // Discarding ordinary Back navigation removes both its trigger and editor.
+    // Narrow Back removes its trigger; desktop navigation stays available.
     for (const draft of [false, true]) {
       if (draft) {
         await page.getByRole('button', { name: 'Create New Note', exact: true }).filter({ visible: true }).click()
@@ -131,8 +131,8 @@ for (const action of ['Archive Note', 'Delete Note']) {
 
       await page.getByLabel('Note content', { exact: true }).fill('Unsaved navigation text')
 
-      if (draft && testInfo.project.name === 'desktop')
-        await page.goBack()
+      if (testInfo.project.name === 'desktop')
+        await page.getByRole('link', { name: 'All Notes', exact: true }).click()
       else
         await page.getByRole('button', { name: 'Back to notes', exact: true }).filter({ visible: true }).click()
       await expect(keep).toBeFocused()
@@ -140,7 +140,7 @@ for (const action of ['Archive Note', 'Delete Note']) {
       await expect(page.getByLabel('Title', { exact: true })).toHaveCount(0)
 
       if (testInfo.project.name === 'desktop')
-        await expect(page.getByRole('button', { name: 'Create New Note', exact: true }).filter({ visible: true })).toBeFocused()
+        await expect(page.getByRole('link', { name: 'All Notes', exact: true })).toBeFocused()
       else
         await expect(page.getByRole('button', { name: 'Back navigation reference', exact: true })).toBeFocused()
     }

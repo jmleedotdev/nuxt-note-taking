@@ -46,7 +46,34 @@ test('signup, unverified recovery, verification, login, SSR shell, and logout', 
   const cookie = (await page.context().cookies()).find(value => value.name.includes('session_token'))!
 
   expect(cookie.httpOnly).toBe(true)
-  await page.getByRole('button', { name: 'Log out', exact: true }).click()
+  await page.getByRole('link', { name: 'Settings', exact: true }).filter({ visible: true }).click()
+
+  const logout = page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Log out', exact: true })
+
+  let release!: () => void
+
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+
+  await page.route('**/api/logout', async (route) => {
+    await gate
+    await route.fulfill({ status: 503, json: {} })
+  })
+
+  try {
+    await logout.focus()
+    await page.keyboard.press('Enter')
+    await expect(logout).toBeDisabled()
+  } finally {
+    release()
+  }
+
+  await expect(page.getByRole('alert')).toContainText('We could not log you out. Please try again.')
+  await expect(logout).toBeEnabled()
+  expect((await page.request.get('/api/session')).status()).toBe(200)
+  await page.unroute('**/api/logout')
+  await logout.click()
   await expect(page).toHaveURL(/\/login$/)
   await page.goBack()
   await expect(page).toHaveURL(/\/login$/)

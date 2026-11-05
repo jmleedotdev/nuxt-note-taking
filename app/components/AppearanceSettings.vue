@@ -2,6 +2,7 @@
 import type { Appearance } from '#shared/schemas/preferences'
 import { appearanceSchema } from '#shared/schemas/preferences'
 
+defineProps<{ logoutPending: boolean }>()
 defineEmits<{ logout: [] }>()
 
 const route = useRoute()
@@ -144,7 +145,7 @@ async function submit() {
       </UButton>
 
       <div class="border-t border-neutral-200 pt-2 dark:border-neutral-800">
-        <UButton icon="i-app-logout" color="neutral" variant="ghost" :disabled="appearance.saving.value" @click="$emit('logout')">
+        <UButton icon="i-app-logout" color="neutral" variant="ghost" :loading="logoutPending" @click="$emit('logout')">
           Log out
         </UButton>
       </div>
