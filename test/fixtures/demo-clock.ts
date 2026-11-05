@@ -1,8 +1,8 @@
-import type { Sql, TransactionSql } from 'postgres'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import { sql } from 'drizzle-orm'
 
-// Replaces the production clock only in explicitly configured test builds.
-export async function demoDay(sql: Sql | TransactionSql) {
-  const [row] = await sql`SELECT to_char(instant AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day FROM test_demo_clock`
+export async function demoDay(db: PostgresJsDatabase) {
+  const [row] = await db.execute(sql`SELECT to_char(instant AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day FROM test_demo_clock`)
 
   return row!.day as string
 }

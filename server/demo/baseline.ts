@@ -1,6 +1,6 @@
 import type { TransactionSql } from 'postgres'
 
-const samples = [
+export const demoSamples = [
   [
     {
       title: 'A weekend outdoors',
@@ -38,7 +38,7 @@ const samples = [
 ]
 
 export async function insertDemoNotes(sql: TransactionSql, ownerId: string, index: number) {
-  for (const note of samples[index]!) {
+  for (const note of demoSamples[index]!) {
     await sql`INSERT INTO notes (owner_id, title, content, tags) VALUES (${ownerId}, ${note.title}, ${note.content}, ${note.tags})`
   }
 }

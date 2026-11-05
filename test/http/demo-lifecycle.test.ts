@@ -265,6 +265,61 @@ describe('daily demo lifecycle over HTTP and PostgreSQL', async () => {
     }
   })
 
+  it('cannot commit an old-session write after losing its coordination connection', async () => {
+    const sql = postgres(database.url, { max: 1 })
+    const observer = postgres(database.url)
+
+    let pending: Promise<Response> | undefined
+
+    try {
+      const cookie = await login()
+      const session = await (await request('/api/session', undefined, cookie)).json()
+
+      await sql.unsafe(`
+        CREATE FUNCTION test_connection_loss_gate() RETURNS trigger AS $$
+        BEGIN
+          IF NEW.theme = 'dark' THEN
+            PERFORM pg_advisory_xact_lock(hashtextextended('test-demo-connection-loss', 0));
+          END IF;
+          RETURN NEW;
+        END; $$ LANGUAGE plpgsql;
+        CREATE TRIGGER test_connection_loss_gate BEFORE INSERT ON appearance_preferences FOR EACH ROW EXECUTE FUNCTION test_connection_loss_gate();
+      `)
+      await sql`SELECT pg_advisory_lock(hashtextextended('test-demo-connection-loss', 0))`
+      pending = request('/api/preferences', { theme: 'dark', font: 'noto-serif' }, cookie, 'PUT', { 'x-expected-account-id': session.user.id })
+      await expect.poll(async () => {
+        const rows = await observer`SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND wait_event = 'advisory' AND query ILIKE '%insert into%appearance_preferences%'`
+
+        return rows.length
+      }).toBe(1)
+
+      // Terminate only the lifecycle lock holder, not the external test gate.
+      // It may be idle during a separate-pool write or itself executing the write.
+      const terminated = await observer`
+        SELECT pg_terminate_backend(a.pid) FROM pg_stat_activity a
+        JOIN pg_locks l ON l.pid = a.pid
+        WHERE a.datname = current_database() AND l.locktype = 'advisory'
+        AND l.granted AND a.pid <> pg_backend_pid()
+        AND a.query NOT ILIKE '%pg_advisory_lock(%'
+      `
+
+      expect(terminated).toHaveLength(1)
+      await control({ advanceDay: true, reset: true })
+      await sql`SELECT pg_advisory_unlock(hashtextextended('test-demo-connection-loss', 0))`
+      expect((await pending).status).toBe(503)
+
+      const current = await login()
+
+      expect(await (await request('/api/preferences', undefined, current)).json()).toEqual({ theme: 'system', font: 'inter' })
+    } finally {
+      await sql`SELECT pg_advisory_unlock_all()`
+      await pending
+      await sql`DROP TRIGGER IF EXISTS test_connection_loss_gate ON appearance_preferences`
+      await sql.end()
+      await observer.end()
+    }
+  })
+
   it('waits for an in-progress reset before creating current-day login authority', async () => {
     const sql = postgres(database.url, { max: 1 })
     const observer = postgres(database.url)
@@ -355,11 +410,7 @@ describe('daily demo lifecycle over HTTP and PostgreSQL', async () => {
 
         return rows.length
       }).toBe(1)
-      await control({
-        now: resource === 'notes'
-          ? '2030-01-14T00:00:00Z'
-          : '2030-01-15T00:00:00Z',
-      })
+      await control({ advanceDay: true })
       reset = control({ reset: true })
 
       // Send another old-session operation while the first is in its actual SQL

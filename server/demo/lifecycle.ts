@@ -1,24 +1,46 @@
-import type { TransactionSql } from 'postgres'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import { AsyncLocalStorage } from 'node:async_hooks'
+import { sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { demoDay } from '#demo-clock'
 import { authConfig } from '../auth/config'
+import { notes } from '../db/schema/notes'
 import { demoAccounts } from './accounts'
-import { insertDemoNotes } from './baseline'
+import { demoSamples } from './baseline'
 
-// Lock waiters cannot use the pools needed by the lock holder's auth/notes work.
+const access = new AsyncLocalStorage<PostgresJsDatabase>()
+
+// Demo services must use the very transaction holding the lifecycle lock. A
+// severed connection then aborts writes as well as releasing coordination.
+export function demoDatabase() {
+  if (authConfig().APP_ENV !== 'demo')
+    return undefined
+
+  const db = access.getStore()
+
+  if (!db)
+    throw new Error('Demo data access requires lifecycle coordination')
+
+  return db
+}
+
+// Lock waiters cannot use the pool needed by the lock holder's auth adapter.
 // Transaction-scoped advisory locks also work through transaction poolers.
 let coordination: ReturnType<typeof postgres> | undefined
 
-function lifecycleClient() {
-  return coordination ??= postgres(authConfig().DATABASE_URL, { max: 5 })
+function lifecycleDatabase() {
+  coordination ??= postgres(authConfig().DATABASE_URL, { max: 5 })
+
+  return drizzle(coordination)
 }
 
-async function lock(sql: TransactionSql) {
-  await sql`SELECT pg_advisory_xact_lock(hashtextextended('portfolio-demo-lifecycle', 0))`
+async function lock(tx: PostgresJsDatabase) {
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended('portfolio-demo-lifecycle', 0))`)
 }
 
-async function completedDay(sql: TransactionSql) {
-  const [row] = await sql`SELECT completed_day FROM demo_lifecycle WHERE id = 'daily'`
+async function completedDay(tx: PostgresJsDatabase) {
+  const [row] = await tx.execute(sql`SELECT completed_day FROM demo_lifecycle WHERE id = 'daily'`)
 
   return row?.completed_day as string | undefined
 }
@@ -29,40 +51,41 @@ export async function ensureDemoDay() {
   if (authConfig().APP_ENV !== 'demo')
     throw new Error('Daily reset is only available in demo mode')
 
-  await lifecycleClient().begin(async (sql) => {
-    await lock(sql)
+  await lifecycleDatabase().transaction(async (tx) => {
+    await lock(tx)
 
-    const day = await demoDay(sql)
-    const completed = await completedDay(sql)
+    const day = await demoDay(tx)
+    const completed = await completedDay(tx)
 
     if (completed && completed >= day)
       return
 
     // Validate both identities before changing anything; never adopt unrelated data.
     for (const account of demoAccounts) {
-      const rows = await sql`SELECT id FROM "user" WHERE id = ${account.id} AND email = ${account.email} AND email_verified = true`
+      const rows = await tx.execute(sql`SELECT id FROM "user" WHERE id = ${account.id} AND email = ${account.email} AND email_verified = true`)
 
       if (rows.length !== 1)
         throw new Error('Demo baseline identities are not provisioned')
     }
 
     for (const [index, account] of demoAccounts.entries()) {
-      await sql`DELETE FROM session WHERE user_id = ${account.id}`
-      await sql`DELETE FROM notes WHERE owner_id = ${account.id}`
-      await sql`DELETE FROM appearance_preferences WHERE owner_id = ${account.id}`
-      await sql`INSERT INTO appearance_preferences (owner_id) VALUES (${account.id})`
-      await insertDemoNotes(sql, account.id, index)
+      await tx.execute(sql`DELETE FROM session WHERE user_id = ${account.id}`)
+      await tx.execute(sql`DELETE FROM notes WHERE owner_id = ${account.id}`)
+      await tx.execute(sql`DELETE FROM appearance_preferences WHERE owner_id = ${account.id}`)
+      await tx.execute(sql`INSERT INTO appearance_preferences (owner_id) VALUES (${account.id})`)
+      await tx.insert(notes).values(demoSamples[index]!.map(note => ({ ...note, ownerId: account.id })))
     }
 
-    await sql`INSERT INTO demo_lifecycle (id, completed_day) VALUES ('daily', ${day}) ON CONFLICT (id) DO UPDATE SET completed_day = EXCLUDED.completed_day`
+    await tx.execute(sql`INSERT INTO demo_lifecycle (id, completed_day) VALUES ('daily', ${day}) ON CONFLICT (id) DO UPDATE SET completed_day = EXCLUDED.completed_day`)
   })
 }
 
-// Commit restoration BEFORE accessing data through the application pools. Then
-// reacquire the same lock and recheck the day: midnight or another instance may
-// have intervened. Holding it through authorization AND the full operation keeps
-// old requests from writing after reset. No reset runs inside this transaction,
-// so an application error cannot roll back an already exposed baseline.
+// Commit restoration BEFORE accessing the baseline. Then reacquire the same
+// lock and recheck the day: midnight or another instance may have intervened.
+// Hold it through authorization AND the full operation. Demo reads/writes use
+// this same transaction via request-local context, so connection loss cannot
+// leave an independent stale mutation running after the lock is released.
+// Auth uses its adapter pool, but no login cookie is forwarded before commit.
 export async function withDemoAccess<T>(operation: () => Promise<T>): Promise<T> {
   if (authConfig().APP_ENV !== 'demo')
     return operation()
@@ -72,20 +95,20 @@ export async function withDemoAccess<T>(operation: () => Promise<T>): Promise<T>
   while (true) {
     await ensureDemoDay()
 
-    const result = await lifecycleClient().begin(async (sql) => {
-      await lock(sql)
+    const result = await lifecycleDatabase().transaction(async (tx) => {
+      await lock(tx)
 
-      const day = await demoDay(sql)
-      const completed = await completedDay(sql)
+      const day = await demoDay(tx)
+      const completed = await completedDay(tx)
 
       if (!completed || completed < day)
         return retry
 
-      const value = await operation()
+      const value = await access.run(tx, operation)
 
-      // In particular, never forward a login cookie created across midnight.
-      // Its session will be revoked by the next reset; the caller can retry.
-      if (await demoDay(sql) > day)
+      // Never forward a login cookie created across midnight; data writes in
+      // this transaction also roll back. The next request restores the day.
+      if (await demoDay(tx) > day)
         throw new Error('Demo boundary crossed during request; retry')
 
       return value
