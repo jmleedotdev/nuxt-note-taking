@@ -74,6 +74,10 @@ function confirmDiscard(): Promise<boolean> {
   })
 }
 
+function focusEditor() {
+  return document.querySelector<HTMLElement>('[name="title"]')
+}
+
 function settleDiscard(discard: boolean) {
   resolveDiscard?.(discard)
   resolveDiscard = undefined
@@ -102,17 +106,7 @@ async function logout() {
 
 <template>
   <div class="min-h-dvh bg-neutral-100 font-sans text-neutral-950 xl:flex dark:bg-neutral-950 dark:text-neutral-0">
-    <UModal :open="discardOpen" title="Discard unsaved note?" description="Your note has not been saved. Leaving will discard your text." @update:open="!$event && settleDiscard(false)">
-      <template #footer>
-        <UButton color="neutral" variant="outline" @click="settleDiscard(false)">
-          Keep writing
-        </UButton>
-
-        <UButton color="error" @click="settleDiscard(true)">
-          Discard note
-        </UButton>
-      </template>
-    </UModal>
+    <ConfirmationDialog :open="discardOpen" title="Discard unsaved note?" description="Your note has not been saved. Leaving will discard your text." icon="i-app-delete" confirm-label="Discard note" cancel-label="Keep writing" destructive :return-focus="focusEditor" @update:open="!$event && settleDiscard(false)" @confirm="settleDiscard(true)" />
 
     <aside class="hidden min-h-dvh w-68 shrink-0 flex-col border-r border-neutral-200 bg-neutral-0 px-4 py-6 xl:flex dark:border-neutral-800 dark:bg-neutral-950">
       <AppLogo role="img" aria-label="notes" class="mb-8 ml-3 shrink-0" />

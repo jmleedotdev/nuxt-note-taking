@@ -69,6 +69,12 @@ test('permanent delete confirms, cancels safely and updates selection and empty 
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('button', { name: 'Delete this note', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Keep this note', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', {
+    name: testInfo.project.name === 'desktop'
+      ? 'Create New Note'
+      : 'Keep this note',
+    exact: true,
+  }).filter({ visible: true })).toBeFocused()
   await expect(page.getByLabel('Title', { exact: true })).toHaveCount(0)
   expect((await page.request.get(`/api/notes/${first.id}`)).status()).toBe(404)
 
@@ -103,6 +109,7 @@ test('permanent delete confirms, cancels safely and updates selection and empty 
   await modal.getByRole('button', { name: 'Delete Note', exact: true }).click()
   await expect(page).toHaveURL(/\?view=archived$/)
   await expect(page.getByText('No notes have been archived yet.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Note list', exact: true })).toBeFocused()
   expect((await page.request.get(`/api/notes/${archived.id}`)).status()).toBe(404)
   expect((await page.request.get(`/api/notes/${remaining.id}`)).status()).toBe(404)
 
