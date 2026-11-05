@@ -26,7 +26,8 @@ async function register(page: import('@playwright/test').Page, ip: string) {
 }
 
 async function logout(page: import('@playwright/test').Page) {
-  await page.getByRole('link', { name: 'Settings', exact: true }).filter({ visible: true }).first().click()
+  // Use app navigation, not the section-back link disabled during appearance saves.
+  await page.getByRole('link', { name: 'Settings', exact: true }).filter({ visible: true }).last().click()
   await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Log out', exact: true }).click()
 }
 
@@ -288,10 +289,7 @@ test('a delayed save response from a logged-out account cannot replace the next 
     await page.getByRole('button', { name: 'Apply Changes' }).click()
     await saved
     await expect(page.getByRole('radio', { name: /Source Code Pro/ })).toBeDisabled()
-    // The retained narrow header also permits logout during an appearance save.
-    await page.setViewportSize({ width: 1099, height: 1024 })
-    await page.getByRole('button', { name: 'Log out', exact: true }).filter({ visible: true }).first().click()
-    await page.setViewportSize(testInfo.project.use.viewport!)
+    await logout(page)
     await expect(page).toHaveURL(/\/login$/)
     await page.getByLabel('Email Address', { exact: true }).fill(second)
     await page.getByLabel('Password', { exact: true }).fill('Abcdef1!')

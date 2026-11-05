@@ -49,12 +49,12 @@ for (const theme of ['light', 'dark'] as const) {
     const save = page.getByRole('button', { name: 'Save Note', exact: true }).filter({ visible: true })
 
     await expect(back).toBeVisible({ visible: !desktop })
-    await expect(page.getByRole('button', { name: 'Log out', exact: true })).toBeVisible({ visible: !desktop })
+    await expect(page.getByRole('button', { name: 'Log out', exact: true })).toHaveCount(0)
     await expect(remove).toHaveCount(1)
     await expect(archive).toHaveCount(1)
 
     if (desktop) {
-      await expect(page.getByText(email, { exact: true })).toBeVisible()
+      await expect(page.getByText(email, { exact: true })).toHaveCount(0)
       await expect(page.getByRole('region', { name: 'Note list', exact: true })).toBeVisible()
       await expectKeyboardOrder(page, [
         page.getByRole('link', { name: 'All Notes', exact: true }),
@@ -141,8 +141,49 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByLabel('Saved note content')).toHaveText('Saved body')
     await expect(page.getByRole('textbox')).toHaveCount(0)
     await expect(back).toBeVisible({ visible: !desktop })
-    await expect(page.getByRole('button', { name: 'Restore Note', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Delete Note', exact: true }).click()
+
+    const restore = page.getByRole('button', { name: 'Restore Note', exact: true }).filter({ visible: true })
+
+    await expect(restore).toHaveCount(1)
+    await expect(remove).toHaveCount(1)
+
+    if (!desktop) {
+      const toolbar = page.getByRole('toolbar', { name: 'Archived note toolbar' })
+
+      await expect(toolbar.getByRole('button', { name: 'Restore Note', exact: true })).toBeVisible()
+      await expect(toolbar.getByRole('button', { name: 'Delete Note', exact: true })).toBeVisible()
+      await page.keyboard.press('Tab')
+      await expectKeyboardOrder(page, [back, remove, restore])
+
+      for (const width of [320, 375, 549, 768, 1099, 1279]) {
+        await page.setViewportSize({ width, height: viewport.height })
+
+        const row = await back.boundingBox()
+
+        for (const action of [remove, restore]) {
+          const box = await action.boundingBox()
+
+          expect(Math.abs(box!.y - row!.y)).toBeLessThan(5)
+          expect(box!.x).toBeGreaterThanOrEqual(0)
+          expect(box!.x + box!.width).toBeLessThanOrEqual(width)
+        }
+
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      }
+
+      await page.setViewportSize(viewport)
+    }
+
+    await page.screenshot({
+      path: testInfo.outputPath(`archived-responsive-${theme}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await remove.click()
+    await page.keyboard.press('Escape')
+    await expect(remove).toBeFocused()
+    await expect(page.getByLabel('Saved note content')).toHaveText('Saved body')
+    await remove.click()
     await page.getByRole('dialog', { name: 'Delete Note', exact: true }).getByRole('button', { name: 'Delete Note', exact: true }).click()
     await expect(page.getByText('No notes have been archived yet.', { exact: true })).toBeVisible()
     await page.reload()

@@ -145,7 +145,7 @@ async function submit() {
       </UButton>
 
       <div class="border-t border-neutral-200 pt-2 dark:border-neutral-800">
-        <UButton icon="i-app-logout" color="neutral" variant="ghost" :loading="logoutPending" :disabled="appearance.saving.value" @click="$emit('logout')">
+        <UButton icon="i-app-logout" color="neutral" variant="ghost" :loading="logoutPending" @click="$emit('logout')">
           Log out
         </UButton>
       </div>

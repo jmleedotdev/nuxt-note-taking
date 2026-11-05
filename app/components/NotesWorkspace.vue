@@ -301,7 +301,19 @@ function date(value: string) {
       <NoteEditor v-if="creating" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @cancel="back" @back="navigateTo({ path: '/', query: contextQuery })" @saved="saved" />
 
       <template v-else>
-        <UButton v-if="!selected || selected.isArchived" icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="mb-4 xl:hidden" @click="navigateTo({ path: '/', query: contextQuery })">
+        <div v-if="selected?.isArchived" role="toolbar" aria-label="Archived note toolbar" class="mb-4 flex items-center justify-between gap-2 border-b border-neutral-200 pb-3 xl:hidden dark:border-neutral-800">
+          <UButton icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="shrink-0 px-0" :disabled="pending" @click="navigateTo({ path: '/', query: contextQuery })">
+            Go Back
+          </UButton>
+
+          <div class="flex items-center gap-1">
+            <UButton icon="i-app-delete" color="neutral" variant="ghost" aria-label="Delete Note" class="size-8 justify-center" :disabled="pending" @click="deleteOpen = true" />
+
+            <UButton icon="i-app-restore" color="neutral" variant="ghost" aria-label="Restore Note" class="size-8 justify-center" :loading="pending" @click="transition()" />
+          </div>
+        </div>
+
+        <UButton v-else-if="!selected" icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="mb-4 xl:hidden" :disabled="pending" @click="navigateTo({ path: '/', query: contextQuery })">
           Go Back
         </UButton>
 
@@ -363,7 +375,7 @@ function date(value: string) {
       </p>
     </section>
 
-    <aside v-if="selected && detail && !creating" aria-label="Note actions" :class="selected.isArchived ? 'flex' : 'hidden xl:flex'" class="mb-4 flex-col gap-3 border-neutral-200 pt-4 xl:order-last xl:mb-0 xl:w-64 xl:shrink-0 xl:border-l xl:p-5 dark:border-neutral-800">
+    <aside v-if="selected && detail && !creating" aria-label="Note actions" class="mb-4 hidden flex-col gap-3 xl:flex border-neutral-200 pt-4 xl:order-last xl:mb-0 xl:w-64 xl:shrink-0 xl:border-l xl:p-5 dark:border-neutral-800">
       <UButton v-if="selected.isArchived" icon="i-app-restore" color="neutral" variant="outline" :loading="pending" @click="transition()">
         Restore Note
       </UButton>

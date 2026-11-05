@@ -126,12 +126,6 @@ async function logout() {
       </p>
 
       <TagNavigation compact @reselect="search = ''" />
-
-      <div class="mt-auto space-y-3 pt-8">
-        <p class="break-all px-3 text-xs text-neutral-600 dark:text-neutral-400">
-          {{ authentication.session.value?.user.email }}
-        </p>
-      </div>
     </aside>
 
     <div class="min-w-0 flex-1">
@@ -149,10 +143,6 @@ async function logout() {
 
           <UButton to="/?panel=settings" icon="i-app-settings" color="neutral" variant="ghost" aria-label="Settings" />
         </div>
-
-        <UButton icon="i-app-logout" color="neutral" variant="ghost" class="xl:hidden" :loading="pending" @click="logout">
-          Log out
-        </UButton>
       </header>
 
       <main class="min-h-[calc(100dvh-4.5rem)] rounded-t-xl bg-neutral-0 px-4 pt-6 pb-24 sm:px-8 xl:min-h-[calc(100dvh-5rem)] xl:rounded-none xl:p-0 dark:bg-neutral-950">
