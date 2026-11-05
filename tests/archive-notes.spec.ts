@@ -56,6 +56,21 @@ test('archive confirmation protects unsaved work and archived notes can be read 
   await modal.getByRole('button', { name: 'Archive Note', exact: true }).click()
   await page.getByRole('button', { name: 'Discard note', exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
+
+  const successToast = page.getByRole('listitem').filter({ hasText: 'Note archived.' })
+
+  await expect(successToast).toBeVisible()
+  await expect(successToast.locator('[data-slot="icon"]')).toBeVisible()
+  await successToast.getByRole('button', { name: 'Close', exact: true }).focus()
+  await expect(successToast.getByRole('button', { name: 'Close', exact: true })).toBeFocused()
+  await page.screenshot({
+    path: testInfo.outputPath('archive-success-toast.png'),
+    fullPage: true,
+    animations: 'disabled',
+  })
+  await page.keyboard.press('Enter')
+  await expect(successToast).toHaveCount(0)
+  expect((await (await page.request.get(`/api/notes/${note.id}`)).json()).isArchived).toBe(true)
   await expect(page.getByRole('button', { name: 'Reference note', exact: true })).toHaveCount(0)
   await page.route('**/api/notes?archived=true', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   await page.getByRole('link', { name: 'Archived Notes', exact: true }).click()
@@ -93,8 +108,21 @@ test('archive confirmation protects unsaved work and archived notes can be read 
   await page.getByRole('button', { name: 'Reload note', exact: true }).click()
   await page.getByRole('button', { name: 'Keep writing', exact: true }).click()
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Keep rejected draft')
-  await page.getByRole('button', { name: 'Reload note', exact: true }).click()
+
+  const conflictToast = page.getByRole('listitem').filter({ hasText: 'A newer version of this note exists.' })
+
+  await expect(conflictToast).toBeVisible()
+  await page.route(`**/api/notes/${note.id}`, route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
+  await conflictToast.getByRole('button', { name: 'Reload note', exact: true }).click()
   await page.getByRole('button', { name: 'Discard note', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('could not reload your note')
+  await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Keep rejected draft')
+  await expect(conflictToast).toBeVisible()
+  await page.unroute(`**/api/notes/${note.id}`)
+  expect((await (await page.request.get(`/api/notes/${note.id}`)).json()).isArchived).toBe(false)
+  await conflictToast.getByRole('button', { name: 'Reload note', exact: true }).click()
+  await page.getByRole('button', { name: 'Discard note', exact: true }).click()
+  await expect(conflictToast).toHaveCount(0)
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Newer reference')
 
   await page.getByRole('button', { name: 'Archive Note', exact: true }).click()

@@ -108,6 +108,7 @@ async function transition(action: 'archive' | 'delete' = 'archive') {
         ? 'Note permanently deleted.'
         : selected.value?.isArchived ? 'Note archived.' : 'Note restored to active notes.',
       color: 'success',
+      icon: 'i-app-checkmark',
     })
     pending.value = false
     await navigateTo({ path: '/', query: contextQuery.value })
@@ -126,6 +127,7 @@ async function transition(action: 'archive' | 'delete' = 'archive') {
           : 'A newer version of this note exists.',
         description: 'Reload for the latest state.',
         color: 'warning',
+        icon: 'i-app-info',
         duration: 0,
         actions: [
           { label: 'Reload note', closeOnClick: false, onClick: reloadTransition },

@@ -147,12 +147,33 @@ test('competing tabs keep rejected text and reload the latest or removed note wi
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('My rejected title')
   await expect(page.getByLabel('Note content', { exact: true })).toHaveValue('Copy this text before reloading')
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await page.screenshot({
-    animations: 'disabled',
-    path: testInfo.outputPath('edit-conflict-dark.png'),
-    fullPage: true,
-  })
-  await page.getByRole('button', { name: 'Reload note', exact: true }).first().click()
+
+  const warningToast = page.getByRole('listitem').filter({ hasText: 'A newer version of this note exists.' })
+  const reloadAction = warningToast.getByRole('button', { name: 'Reload note', exact: true })
+
+  await expect(warningToast.locator('[data-slot="icon"]')).toBeVisible()
+  // Recovery must outlive the library's normal five-second success lifetime.
+  await page.waitForTimeout(5500)
+  await expect(warningToast).toBeVisible()
+  await reloadAction.focus()
+  await expect(reloadAction).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(warningToast.getByRole('button', { name: 'Close', exact: true })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(reloadAction).toBeFocused()
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: theme })
+    await expect(page.locator('html')).toHaveClass(new RegExp(theme))
+    await expect(reloadAction).toHaveCSS('color', 'rgb(14, 18, 27)')
+    await page.screenshot({
+      animations: 'disabled',
+      path: testInfo.outputPath(`edit-conflict-${theme}.png`),
+      fullPage: true,
+    })
+  }
+
+  await page.keyboard.press('Enter')
   await page.getByRole('button', { name: 'Keep writing', exact: true }).click()
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('My rejected title')
   await page.route(`**/api/notes/${note.id}`, route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
@@ -162,7 +183,15 @@ test('competing tabs keep rejected text and reload the latest or removed note wi
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('My rejected title')
   await expect(page.getByLabel('Note content', { exact: true })).toHaveValue('Copy this text before reloading')
   await page.unroute(`**/api/notes/${note.id}`)
-  await page.getByRole('button', { name: 'Reload note', exact: true }).first().click()
+  expect((await (await page.request.get(`/api/notes/${note.id}`)).json()).title).toBe('Newer version from another tab')
+  // Closing a warning is not permission to discard; the editor keeps its fallback.
+  await page.getByRole('button', { name: 'Save Note', exact: true }).click()
+  await expect(warningToast).toBeVisible()
+  await warningToast.getByRole('button', { name: 'Close', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await expect(warningToast).toHaveCount(0)
+  await expect(page.getByLabel('Note content', { exact: true })).toHaveValue('Copy this text before reloading')
+  await page.getByRole('button', { name: 'Reload note', exact: true }).click()
   await page.getByRole('button', { name: 'Discard note', exact: true }).click()
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Newer version from another tab')
   await expect(page.getByLabel('Note content', { exact: true })).toHaveValue('Saved body')
@@ -174,6 +203,14 @@ test('competing tabs keep rejected text and reload the latest or removed note wi
   await page.getByRole('button', { name: 'Save Note', exact: true }).click()
   await expect(page.getByText('This note was removed.', { exact: true })).toBeVisible()
   await expect(page.getByLabel('Note content', { exact: true })).toHaveValue('Text for the removed note')
+
+  const removedToast = page.getByRole('listitem').filter({ hasText: 'This note was removed.' })
+
+  await expect(removedToast).toBeVisible()
+  await removedToast.getByRole('button', { name: 'Reload note', exact: true }).click()
+  await page.getByRole('button', { name: 'Keep writing', exact: true }).click()
+  await expect(page.getByLabel('Note content', { exact: true })).toHaveValue('Text for the removed note')
+  expect((await page.request.get(`/api/notes/${note.id}`)).status()).toBe(404)
   await page.getByRole('button', { name: 'Reload note', exact: true }).first().click()
   await page.getByRole('button', { name: 'Discard note', exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
