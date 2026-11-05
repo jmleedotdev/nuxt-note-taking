@@ -51,7 +51,11 @@ test('load failures are recoverable and unsaved navigation requires confirmation
   await page.getByRole('button', { name: 'Save Note', exact: true }).click()
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Title only')
   await expect(page).toHaveURL(/note=/)
-  await page.getByRole('button', { name: 'Back to notes', exact: true }).click()
+
+  if (testInfo.project.name === 'desktop')
+    await page.getByRole('link', { name: 'All Notes', exact: true }).click()
+  else
+    await page.getByRole('button', { name: 'Back to notes', exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
   await page.route('**/api/notes/*', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   // A refresh of the read is needed because Nuxt legitimately caches this saved note.

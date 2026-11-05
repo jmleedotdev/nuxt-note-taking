@@ -124,17 +124,19 @@ async function save(event: FormSubmitEvent<NoteInput>) {
 
 <template>
   <UForm ref="form" :schema="noteFormSchema" :state="state" :validate-on="[]" class="flex min-w-0 flex-1 flex-col gap-4" @submit="save">
-    <div class="flex items-center justify-between gap-2 border-b border-neutral-200 pb-3 xl:hidden dark:border-neutral-800">
-      <UButton icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" :disabled="pending" @click="emit('back')">
+    <div role="toolbar" aria-label="Note toolbar" class="flex items-center justify-between gap-2 border-b border-neutral-200 pb-3 xl:hidden dark:border-neutral-800">
+      <UButton icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="shrink-0 px-0" :disabled="pending" @click="emit('back')">
         Go Back
       </UButton>
 
-      <div class="flex gap-1">
-        <UButton color="neutral" variant="ghost" :disabled="pending" @click="cancel">
+      <div class="flex shrink-0 items-center gap-1">
+        <slot name="actions" />
+
+        <UButton color="neutral" variant="ghost" class="px-1" :disabled="pending" @click="cancel">
           Cancel
         </UButton>
 
-        <UButton type="submit" variant="ghost" :loading="pending">
+        <UButton type="submit" variant="ghost" class="px-1" :loading="pending">
           Save Note
         </UButton>
       </div>
@@ -142,10 +144,6 @@ async function save(event: FormSubmitEvent<NoteInput>) {
 
     <UButton v-if="recovery" color="neutral" variant="outline" :disabled="pending" class="self-start" @click="reload">
       Reload note
-    </UButton>
-
-    <UButton v-if="note" icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="hidden self-start xl:inline-flex" :disabled="pending" @click="emit('back')">
-      Go Back
     </UButton>
 
     <UFormField name="title" label="Title" :ui="{ label: 'sr-only' }">

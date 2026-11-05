@@ -40,7 +40,7 @@ test('permanent delete confirms, cancels safely and updates selection and empty 
 
   await goto(`/?note=${first.id}`, { waitUntil: 'hydration' })
 
-  const trigger = page.getByRole('complementary', { name: 'Note actions' }).getByRole('button', { name: 'Delete Note', exact: true })
+  const trigger = page.getByRole('button', { name: 'Delete Note', exact: true }).filter({ visible: true })
   const modal = page.getByRole('dialog', { name: 'Delete Note', exact: true })
 
   await trigger.focus()

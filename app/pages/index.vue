@@ -85,7 +85,7 @@ function settleDiscard(discard: boolean) {
 }
 
 async function logout() {
-  if (!await confirmDiscard())
+  if (pending.value || !await confirmDiscard())
     return
 
   pending.value = true
@@ -131,14 +131,6 @@ async function logout() {
         <p class="break-all px-3 text-xs text-neutral-600 dark:text-neutral-400">
           {{ authentication.session.value?.user.email }}
         </p>
-
-        <UButton icon="i-app-logout" color="neutral" variant="ghost" :loading="pending" @click="logout">
-          Log out
-        </UButton>
-
-        <p v-if="message" role="alert" class="text-sm text-red-500">
-          {{ message }}
-        </p>
       </div>
     </aside>
 
@@ -172,7 +164,7 @@ async function logout() {
           {{ title }}
         </h1>
 
-        <p v-if="message" role="alert" class="mb-4 text-sm text-red-500 xl:hidden">
+        <p v-if="message" role="alert" class="mb-4 text-sm text-red-500 xl:px-8 xl:pt-4">
           {{ message }}
         </p>
 
@@ -185,7 +177,7 @@ async function logout() {
           <NuxtLink to="/?panel=settings&setting=color" class="underline">Open settings to try again.</NuxtLink>
         </p>
 
-        <AppearanceSettings v-if="settingsPanel" @logout="logout" />
+        <AppearanceSettings v-if="settingsPanel" :logout-pending="pending" @logout="logout" />
 
         <template v-else-if="tagsPanel">
           <TagNavigation class="xl:p-6" @reselect="search = ''" />

@@ -301,7 +301,7 @@ function date(value: string) {
       <NoteEditor v-if="creating" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @cancel="back" @back="navigateTo({ path: '/', query: contextQuery })" @saved="saved" />
 
       <template v-else>
-        <UButton v-if="!selected || selected.isArchived" icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="mb-4" @click="navigateTo({ path: '/', query: contextQuery })">
+        <UButton v-if="!selected || selected.isArchived" icon="i-app-arrow-left" color="neutral" variant="ghost" aria-label="Back to notes" class="mb-4 xl:hidden" @click="navigateTo({ path: '/', query: contextQuery })">
           Go Back
         </UButton>
 
@@ -317,7 +317,13 @@ function date(value: string) {
           </UButton>
         </div>
 
-        <NoteEditor v-else-if="selected && !selected.isArchived" :key="`${selected.id}-${selected.version}`" :note="selected" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @back="navigateTo({ path: '/', query: contextQuery })" @saved="saved" @removed="removed" />
+        <NoteEditor v-else-if="selected && !selected.isArchived" :key="`${selected.id}-${selected.version}`" :note="selected" :confirm-discard="confirmDiscard" @dirty="dirty = $event" @back="navigateTo({ path: '/', query: contextQuery })" @saved="saved" @removed="removed">
+          <template #actions>
+            <UButton icon="i-app-delete" color="neutral" variant="ghost" aria-label="Delete Note" class="size-8 justify-center" :disabled="pending" @click="deleteOpen = true" />
+
+            <UButton icon="i-app-archive" color="neutral" variant="ghost" aria-label="Archive Note" class="size-8 justify-center" :disabled="pending" @click="archiveOpen = true" />
+          </template>
+        </NoteEditor>
 
         <article v-else-if="selected" class="space-y-4">
           <h2 class="text-2xl font-bold tracking-tight wrap-anywhere">
@@ -351,29 +357,31 @@ function date(value: string) {
           </p>
         </article>
       </template>
+
+      <p v-if="transitionError" role="alert" class="mt-4 text-sm text-red-600 dark:text-red-400">
+        {{ transitionError }}
+      </p>
     </section>
 
-    <aside v-if="selected && detail && !creating" aria-label="Note actions" class="mb-4 flex flex-col gap-3 border-neutral-200 pt-4 xl:order-last xl:mb-0 xl:w-64 xl:shrink-0 xl:border-l xl:p-5 dark:border-neutral-800">
+    <aside v-if="selected && detail && !creating" aria-label="Note actions" :class="selected.isArchived ? 'flex' : 'hidden xl:flex'" class="mb-4 flex-col gap-3 border-neutral-200 pt-4 xl:order-last xl:mb-0 xl:w-64 xl:shrink-0 xl:border-l xl:p-5 dark:border-neutral-800">
       <UButton v-if="selected.isArchived" icon="i-app-restore" color="neutral" variant="outline" :loading="pending" @click="transition()">
         Restore Note
       </UButton>
 
-      <ConfirmationDialog v-if="!selected.isArchived" v-model:open="archiveOpen" title="Archive Note" description="Are you sure you want to archive this note? You can find it in the Archived Notes section and restore it anytime." icon="i-app-archive" confirm-label="Archive Note" @confirm="transition()">
-        <UButton icon="i-app-archive" color="neutral" variant="outline" :disabled="pending">
-          Archive Note
-        </UButton>
-      </ConfirmationDialog>
+      <UButton v-if="!selected.isArchived" icon="i-app-archive" color="neutral" variant="outline" :disabled="pending" @click="archiveOpen = true">
+        Archive Note
+      </UButton>
 
-      <ConfirmationDialog v-model:open="deleteOpen" title="Delete Note" description="Are you sure you want to permanently delete this note? This action cannot be undone." icon="i-app-delete" confirm-label="Delete Note" destructive @confirm="transition('delete')">
-        <UButton icon="i-app-delete" color="neutral" variant="outline" :disabled="pending">
-          Delete Note
-        </UButton>
-      </ConfirmationDialog>
-
-      <p v-if="transitionError" role="alert" class="text-sm text-red-600 dark:text-red-400">
-        {{ transitionError }}
-      </p>
+      <UButton icon="i-app-delete" color="neutral" variant="outline" :disabled="pending" @click="deleteOpen = true">
+        Delete Note
+      </UButton>
     </aside>
+
+    <template v-if="selected && detail && !creating">
+      <ConfirmationDialog v-if="!selected.isArchived" v-model:open="archiveOpen" title="Archive Note" description="Are you sure you want to archive this note? You can find it in the Archived Notes section and restore it anytime." icon="i-app-archive" confirm-label="Archive Note" @confirm="transition()" />
+
+      <ConfirmationDialog v-model:open="deleteOpen" title="Delete Note" description="Are you sure you want to permanently delete this note? This action cannot be undone." icon="i-app-delete" confirm-label="Delete Note" destructive @confirm="transition('delete')" />
+    </template>
 
     <UButton v-if="!archived && !detail" ref="createButton" icon="i-app-plus" aria-label="Create New Note" class="fixed right-4 bottom-24 size-12 justify-center rounded-full shadow-lg sm:right-8 sm:size-16 xl:hidden" @click="create" />
   </div>
