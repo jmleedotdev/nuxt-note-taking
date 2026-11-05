@@ -15,6 +15,28 @@ const tagsPanel = computed(() => route.query.panel === 'tags')
 const searchPanel = computed(() => route.query.panel === 'search')
 const home = computed(() => !settingsPanel.value && !archived.value && !tagsPanel.value && !searchPanel.value && !tag.value)
 const search = ref(query.value)
+const desktopSearch = useTemplateRef('desktopSearch')
+const { getKbdKey } = useKbd()
+
+// defineShortcuts remaps Command to Control off macOS, but search supports both
+// bindings on every desktop platform, including while editing a note.
+function focusSearch(event: KeyboardEvent) {
+  const input = desktopSearch.value?.inputRef
+
+  if (event.defaultPrevented || event.isComposing || event.altKey || event.shiftKey
+    || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k'
+    || !input?.getClientRects().length
+    || document.querySelector('[role="dialog"], [role="alertdialog"], dialog[open]')) {
+    return
+  }
+
+  event.preventDefault()
+  input.focus()
+  input.select()
+}
+
+onMounted(() => window.addEventListener('keydown', focusSearch))
+onBeforeUnmount(() => window.removeEventListener('keydown', focusSearch))
 
 watch(() => route.fullPath, () => {
   search.value = query.value
@@ -138,7 +160,11 @@ async function logout() {
 
         <div class="hidden shrink-0 items-center gap-5 xl:flex">
           <form @submit.prevent="submitSearch">
-            <UInput v-model="search" type="search" icon="i-app-search" placeholder="Search by title, content, or tags…" aria-label="Search notes" class="w-75" />
+            <UInput ref="desktopSearch" v-model="search" type="search" icon="i-app-search" placeholder="Search by title, content, or tags…" aria-label="Search notes" class="w-75">
+              <template #trailing>
+                <span aria-hidden="true" class="pointer-events-none text-xs text-neutral-500">{{ getKbdKey('meta') }} + K</span>
+              </template>
+            </UInput>
           </form>
 
           <UButton to="/?panel=settings" icon="i-app-settings" color="neutral" variant="ghost" aria-label="Settings" />
