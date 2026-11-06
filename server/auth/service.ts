@@ -16,7 +16,7 @@ function createAuthService() {
   const sender = createMailSender(config)
   // All credential-lock waiters use this separate pool. They must never exhaust
   // the adapter pool needed by the login lock holder to finish creating a session.
-  const credentialTransactions = databaseConnection(config.DATABASE_URL)
+  const credentialTransactions = databaseConnection(config.DATABASE_URL, 5)
   const auth = betterAuth({
     baseURL: config.APP_URL,
     secret: config.APP_AUTH_SECRET,

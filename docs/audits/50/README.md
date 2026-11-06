@@ -30,7 +30,25 @@ were available. #50 remains operationally blocked, not fully accepted.
 - `NITRO_PRESET=vercel VERCEL=1 VERCEL_ENV=production APP_ENV=demo ... pnpm build`:
   passed with disposable build-only auth settings. Produced the standard Node
   fallback function and cron route in `.vercel/output`. No deployment performed.
-- Full routine suite and independent review: results to be recorded before final handoff.
+- Full routine suite: `pnpm test exec vitest run --maxWorkers=2`: **18 files,
+  157 tests passed**, including normal-mode authentication/password-management
+  and all demo HTTP checks. Worker count limits local parallel Nuxt builds;
+  no tests were filtered out. An unrestricted run encountered a transient
+  `EADDRINUSE` during test-server startup; the bounded-worker run passed.
+- Initial full runs exposed a normal-mode pool regression, fixed by preserving
+  its previous adapter/credential pool capacities (demo retains one each).
+  `test/http/password-change.test.ts`: **9 passed** after the fix.
+- A pre-existing host-vs-Docker-clock assumption in notes creation failed by
+  2–7 ms. Its HTTP test now brackets creation with the authoritative PostgreSQL
+  clock via the existing test-only fixture, retaining lower and upper bounds.
+  `test/http/notes.test.ts`: **18 passed**, then the full suite passed.
+- Safety probes: both application connection creation and destructive test
+  runner reject a loopback URL containing `?host=remote.invalid&sslmode=disable`
+  before opening a connection. This closes the driver's query-host override.
+- Independent two-axis review: **Standards: no findings**; **Spec: two P1
+  findings** (effective-host override bypass and normal-mode pool regression),
+  both fixed. Follow-up Spec review found no remaining repository regressions.
+  Both axes distinguish repository readiness from outstanding hosted launch gates.
 
 The database runner refuses non-loopback targets before making a connection.
 Never bypass this using a tunnel to the public demo database.

@@ -33,13 +33,17 @@ for Supavisor transaction mode. PostgreSQL transactions and transaction-scoped
 advisory locks remain real; no HTTP database adapter or session-scoped locks are
 used. The same settings cover the auth adapter, credential coordination, daily
 lifecycle, and provisioning. They retain three **independent one-connection pools
-per warm instance** to avoid lock-waiter starvation. Connections idle out after
+per warm demo instance** to avoid lock-waiter starvation. Ordinary note/preference
+clients are lazy and do not open extra connections in demo mode. Normal-mode
+adapter/credential pool budgets remain unchanged. Connections idle out after
 20 seconds; connection attempts time out after 10 seconds. This bounds each
 instance, not Vercel's total instance count. Monitor Supabase connection usage
 and function errors; free-tier limits can still deny service under load.
 
 Remote application/provisioning connections require TLS with certificate
-verification, even if a URL tries `sslmode=disable`. Never use
+verification, even if a URL tries `sslmode=disable`. URLs containing a `host`
+query override are rejected before connecting, so driver target selection cannot
+bypass the authority-host TLS or test-safety checks. Never use
 `rejectUnauthorized: false` to get a deployment working. Confirm the chosen
 pooler certificate is trusted by Node; a trust failure is a launch blocker, not
 permission to disable verification. Loopback disposable development databases

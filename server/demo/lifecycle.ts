@@ -31,7 +31,7 @@ export function demoDatabase() {
 let coordination: ReturnType<typeof postgres> | undefined
 
 function lifecycleDatabase() {
-  coordination ??= databaseConnection(authConfig().DATABASE_URL)
+  coordination ??= databaseConnection(authConfig().DATABASE_URL, 5)
 
   return drizzle(coordination)
 }

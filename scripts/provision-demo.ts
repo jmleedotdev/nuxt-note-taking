@@ -11,7 +11,7 @@ if (process.env.APP_ENV !== 'demo' || !target
   throw new Error('Set APP_ENV=demo and DATABASE_URL explicitly; pass --confirm-database with the exact database name')
 }
 
-const client = databaseConnection(target)
+const client = databaseConnection(target, 1)
 
 try {
   await provisionDemo(client, [process.env.DEMO_PASSWORD_1 ?? '', process.env.DEMO_PASSWORD_2 ?? ''])
