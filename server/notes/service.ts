@@ -5,6 +5,7 @@ import { authConfig } from '../auth/config'
 import { createDatabase } from '../db/client'
 import { user } from '../db/schema/auth'
 import { notes } from '../db/schema/notes'
+import { demoDatabase } from '../demo/lifecycle'
 
 function toNote(row: typeof notes.$inferSelect): Note {
   return {
@@ -19,28 +20,31 @@ function toNote(row: typeof notes.$inferSelect): Note {
 }
 
 function createNotesService() {
-  const { db } = createDatabase()
+  const { db: ordinaryDatabase } = createDatabase()
 
   return {
     async create(ownerId: string, input: NoteInput) {
+      const db = demoDatabase() ?? ordinaryDatabase
+
       if (authConfig().APP_ENV === 'demo') {
-        return db.transaction(async (tx) => {
-          // A per-account database lock serializes creates across instances.
-          // Count in a separate statement after acquiring it so READ COMMITTED
-          // sees the preceding creator's committed insert, including archives.
-          await tx.select({ id: user.id }).from(user).where(eq(user.id, ownerId)).for('update')
+        // The demo database already belongs to the lifecycle transaction.
+        const tx = db
 
-          const [saved] = await tx.select({
-            count: count(),
-          }).from(notes).where(eq(notes.ownerId, ownerId))
+        // A per-account database lock serializes creates across instances.
+        // Count in a separate statement after acquiring it so READ COMMITTED
+        // sees the preceding creator's committed insert, including archives.
+        await tx.select({ id: user.id }).from(user).where(eq(user.id, ownerId)).for('update')
 
-          if (saved!.count >= 10)
-            return { error: 'NOTE_CAPACITY_REACHED' } as const
+        const [saved] = await tx.select({
+          count: count(),
+        }).from(notes).where(eq(notes.ownerId, ownerId))
 
-          const [row] = await tx.insert(notes).values({ ...input, ownerId }).returning()
+        if (saved!.count >= 10)
+          return { error: 'NOTE_CAPACITY_REACHED' } as const
 
-          return toNote(row!)
-        })
+        const [row] = await tx.insert(notes).values({ ...input, ownerId }).returning()
+
+        return toNote(row!)
       }
 
       const [row] = await db.insert(notes).values({ ...input, ownerId }).returning()
@@ -48,6 +52,7 @@ function createNotesService() {
       return toNote(row!)
     },
     async update(ownerId: string, id: string, version: number, input: NoteInput) {
+      const db = demoDatabase() ?? ordinaryDatabase
       const changed = or(ne(notes.title, input.title), ne(notes.content, input.content), ne(notes.tags, input.tags))!
       // PostgreSQL rechecks this predicate after waiting for competing writes.
       // CASE preserves the logical clock/version for normalized no-op saves.
@@ -77,6 +82,7 @@ function createNotesService() {
       }
     },
     async setArchived(ownerId: string, id: string, version: number, isArchived: boolean) {
+      const db = demoDatabase() ?? ordinaryDatabase
       const [row] = await db.update(notes).set({
         isArchived,
         version: sql`CASE WHEN ${notes.isArchived} <> ${isArchived} THEN ${notes.version} + 1 ELSE ${notes.version} END`,
@@ -99,6 +105,7 @@ function createNotesService() {
       }
     },
     async delete(ownerId: string, id: string, version: number) {
+      const db = demoDatabase() ?? ordinaryDatabase
       const [removed] = await db.delete(notes).where(and(
         eq(notes.ownerId, ownerId),
         eq(notes.id, id),
@@ -115,11 +122,13 @@ function createNotesService() {
       } as const
     },
     async tags(ownerId: string) {
+      const db = demoDatabase() ?? ordinaryDatabase
       const rows = await db.select({ tag: sql<string>`min(tag)` }).from(notes).crossJoin(sql`unnest(${notes.tags}) AS tag`).where(eq(notes.ownerId, ownerId)).groupBy(sql`lower(tag)`).orderBy(sql`lower(tag)`)
 
       return rows.map(row => row.tag)
     },
     async list(ownerId: string, archived = false, query = '', tag = '') {
+      const db = demoDatabase() ?? ordinaryDatabase
       // strpos is a literal substring operation: %, _ and backslash have no wildcard meaning.
       const matches = query
         ? sql`(
@@ -136,6 +145,7 @@ function createNotesService() {
       return rows.map(toNote)
     },
     async read(ownerId: string, id: string) {
+      const db = demoDatabase() ?? ordinaryDatabase
       const [row] = await db.select().from(notes).where(and(eq(notes.ownerId, ownerId), eq(notes.id, id)))
 
       return row

@@ -283,7 +283,12 @@ describe('demo access over real HTTP', async () => {
     expect(settings).not.toContain('Change Password')
     expect(settings).not.toContain('Current Password')
 
-    for (const path of ['/__test/mail', '/__test/auth-state', '/__test/note-state'])
+    for (const path of [
+      '/__test/mail',
+      '/__test/auth-state',
+      '/__test/note-state',
+      '/__test/demo-lifecycle',
+    ])
       expect((await request(path)).status).toBe(404)
   })
 

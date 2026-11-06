@@ -3,6 +3,7 @@ import type { ZodType } from 'zod'
 import { isError } from 'h3'
 import { checkAuthOrigin } from '../auth/http'
 import { requireVerifiedSession } from '../auth/session'
+import { withDemoAccess } from '../demo/lifecycle'
 import { readApplicationJSON } from '../utils/readApplicationJSON'
 
 export async function readNoteInput<T>(event: H3Event, schema: ZodType<T>) {
@@ -41,9 +42,11 @@ export async function notesHTTP(event: H3Event, operation: (ownerId: string) => 
   setHeader(event, 'Cache-Control', 'no-store')
 
   try {
-    const session = await requireVerifiedSession(event)
+    return await withDemoAccess(async () => {
+      const session = await requireVerifiedSession(event)
 
-    return await operation(session.user.id)
+      return operation(session.user.id)
+    })
   } catch (error) {
     const status = isError(error) && [401, 403].includes(error.statusCode)
       ? error.statusCode

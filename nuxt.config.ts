@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
@@ -6,6 +8,9 @@ export default defineNuxtConfig({
     '@nuxt/test-utils/module',
     '@nuxt/ui',
   ],
+  alias: {
+    '#demo-clock': fileURLToPath(new URL('./server/demo/clock.ts', import.meta.url)),
+  },
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
