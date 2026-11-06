@@ -4,10 +4,12 @@
 
 Implementation baseline: `80426f27198223449bd4ecce96a5d9eac7dd043f` on branch `demo`.
 Verification environment: Node **24.22.2**, pnpm **12.14.0**, local disposable
-PostgreSQL via Compose. This is **repository readiness evidence, not a published
-deployment**. At implementation time, no account authorization or private hosted
-credentials were available. Subsequent hosted database preparation is recorded
-below. The Vercel application deployment remains unverified; #50 is not fully accepted.
+PostgreSQL via Compose. The original checks below establish repository readiness;
+subsequent dated sections record actual Supabase preparation and hosted Vercel
+HTTP/browser checks. **Deployed but not launch-ready or advertised**: client-IP
+attribution and remaining platform launch gates are incomplete. Production now
+uses **`main`**, which contains the original `demo` implementation. #50 is not
+fully accepted.
 
 ## Checks performed
 
@@ -114,27 +116,69 @@ nor application availability has been independently verified.
   explicit SSL-option precedence. The Spec reviewer covered the public template.
   Both reviews accept only this increment, not completion of the hosted launch gates.
 
+## Hosted application smoke checks — 2026-11-06
+
+- The operator approved deployment, initial daily restoration, and bounded smoke
+  mutations, then selected **`main`** as Production. The reviewed implementation
+  was already merged at `d8f35e0`; no merge or push was needed. GitHub's Vercel
+  commit status reports success. Its latest reported deployment is
+  `G81ADmQv2m6oL6QDqeXUwPvU9sdR` in `jmlees-projects/nuxt-note-taking` (an earlier
+  successful status referenced `JAGfYB4X2vt5dvLoSv5A8NiFUg1U`). Checks targeted
+  `https://nuxt-note-taking.vercel.app`, not a local server.
+- Vercel CLI inspection is unavailable: `pnpm dlx vercel whoami` was blocked by
+  the package manager's high-risk trust-downgrade warning for `vercel@65.11.0`.
+  That guard was not bypassed. Dashboard-only settings are not independently verified.
+- At **03:31 UTC**, the hosted cron endpoint rejected missing bearer authorization
+  and the public password with 401/no-store. The authorized initial invocation
+  returned 200. Both account logins succeeded with Secure, HttpOnly, SameSite=Lax
+  session cookies and no-store login responses. Each account had three baseline
+  notes and System/Inter preferences. Cross-account note reads returned 404 in
+  both directions; all six restricted credential-management APIs returned
+  403/DEMO_RESTRICTED. Duplicate authorized cron preserved current sessions and notes.
+- Bounded browser checks passed ordinary logins, disabled registration/recovery
+  links and direct-page redirects, and disabled password settings. The notice was
+  full-width above the authenticated header at **1440, 768, and 390 px**, with no
+  horizontal overflow and all shared/privacy/reset/unsaved-work guidance visible.
+- Preferences saved and remained isolated between accounts; original preferences
+  were restored. Temporary-note create/edit/search/tag/archive/restore passed;
+  another authorized same-day cron preserved the new note and current session.
+- At **10:05 UTC**, the mobile capacity journey passed: three samples plus seven
+  temporary notes reached ten; archiving did not free capacity; editing still
+  worked. The visible warning preserved the unsaved draft. Deleting one temporary
+  note through its confirmation freed a slot, and saving the draft then succeeded.
+- Early smoke-script attempts stopped on harness assumptions, not established app
+  defects: the login page has no application header, preference PUT requires the
+  expected-account precondition, and fresh SSR controls must hydrate before clicks.
+  The final focused capacity probe waited for Vue mount and passed. An interrupted
+  run was checked for leftovers before continuing. The repository's destructive
+  HTTP/browser suites were never pointed at the hosted database.
+- Screenshots are private local artifacts under `.vercel/hosted-evidence/`, not
+  committed. Cleanup deleted only IDs created by these smoke runs, guarded by
+  their operator title prefix and current note version. Read-only verification at
+  **2026-11-06T10:05:36.000Z** confirmed three notes each, no operator smoke notes,
+  System/Inter preferences, and completed lifecycle day `2026-11-06`.
+- **Client-IP blocker confirmed:** the latest hosted browser logins match the
+  HMAC limiter identity for loopback peer `127.0.0.1`, not a visitor address. No raw
+  visitor addresses or limiter hashes were recorded. This is the proxy peer seen
+  by the current adapter, so the shared fallback does not establish independent
+  visitor budgets. Do not advertise until a platform-specific attribution path
+  is validated against forged headers and two actual client networks.
+
 ## Unresolved hosted launch gates
 
-The following remain **unverified or incomplete**, not implied by local passes:
+The following remain **unverified or incomplete**, not implied by successful smoke checks:
 
-1. Independently verify the human-reported Vercel Hobby setup, Production branch,
-   Node version, and Production-only environment entry; Supabase project exists
-   and has been reached directly as recorded above.
-2. Controlled migration and create-only provisioning are complete. The explicitly
-   authorized initial daily baseline restoration remains outstanding.
-3. Vercel CA trust configuration, actual deployed Supavisor connectivity,
-   transaction rollback/locking, connection budget, and Node runtime smoke checks.
-4. Both hosted logins, secure/HttpOnly/SameSite cookies, account isolation,
-   notes/preferences, capacity feedback, responsive notice, disabled credential
-   management, and deployed client artifact secret audit.
-5. Preview isolation and absence of Production database/reset secrets in
-   Preview/Development/shared scopes.
-6. Hosted cron authorization, enabled midnight UTC schedule, duplicate invocation
-   preservation, and an actual scheduled delivery log.
-7. Actual Vercel client-IP attribution and spoof resistance. The fixed-peer
-   adapter may need a platform-specific replacement; do not publish until it is
-   validated. Bounded shared-IP fallback is not per-visitor attribution evidence.
+1. Independently verify Vercel Hobby plan, Production branch tracking, actual
+   Node version, Production-only variables, and Supabase public Data API exposure.
+2. Verify Preview isolation and absence of live database/reset secrets in
+   Preview/Development/shared scopes; inspect deployed client artifacts for secrets.
+3. Verify hosted transaction rollback/concurrency and connection budget without
+   running the destructive integration suite against shared demo data.
+4. Verify enabled midnight UTC cron settings and an actual scheduled-delivery log.
+   Manual authorization and same-day idempotence are verified, not scheduled delivery.
+5. Fix/validate client-IP attribution and spoof resistance with two client networks.
+   Current hosted limiter attribution collapses to the loopback proxy peer; this
+   is a launch blocker, not evidence that the shared-account IP protection is complete.
 
 Follow [the runbook](../../demo-deployment.md) in order and append dated hosted
 results (deployment/commit IDs, steps, observed outcomes, no secrets) here. Then

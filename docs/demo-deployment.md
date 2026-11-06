@@ -2,12 +2,13 @@
 
 ## Publication status
 
-**Not published or application-hosted-verified.** Controlled Supabase database
-preparation has been performed; Vercel account/CLI access and deployed application
-behavior remain unverified. A live URL must not be advertised until the gates
-below pass. Local checks and bounded hosted database results are distinguished in
-[deployment evidence](audits/50/README.md); database probes alone do not verify
-Vercel connectivity, environment scoping, cookies, cron delivery, or ingress IP trust.
+**Deployed, but not yet launch-ready or advertised.** Controlled Supabase setup
+and bounded hosted HTTP/browser smoke checks have passed. Trusted client-IP
+attribution, Preview/secret scoping, actual scheduled delivery, and the remaining
+platform gates below are still incomplete. The Production branch is **`main`**.
+Local and hosted results are distinguished in
+[deployment evidence](audits/50/README.md); successful core journeys do not prove
+all platform settings, cron delivery, or ingress IP trust.
 
 ## Ownership of the steps
 
@@ -87,7 +88,9 @@ password in either URL. Use the same dedicated project for both URLs.
    these application-owned tables must not be exposed through Supabase's
    anonymous API. Do not publish Supabase API keys.
 2. Human: import this repository into Vercel, select Nuxt, Node 24, and the
-   intended Production branch. Authorize the integration. Do not publish yet.
+   **`main` Production branch** (Settings → Environments → Production → Branch
+   Tracking). Authorize the integration. Keep the deployment unadvertised until
+   the launch gates pass.
 3. Human: generate **different** private `APP_AUTH_SECRET` and `CRON_SECRET`
    values (`openssl rand -hex 32` each). Enter the variables from
    `.env.demo.example` for **Production only**, not All Environments, Preview,

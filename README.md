@@ -14,7 +14,7 @@ Built with Nuxt 4, Vue 3, Nuxt UI, and Tailwind CSS, with Better Auth for authen
 
 ## Public portfolio demo
 
-**Publication pending:** there is no verified live demo URL yet. Deployment requires the human account/secret steps and hosted launch gates in the [deployment runbook](docs/demo-deployment.md). Do not treat local test results as hosted verification.
+**Publication pending:** the deployment is running and core hosted smoke checks pass, but the operational launch gates are incomplete, including trusted client-IP attribution. See the [deployment runbook](docs/demo-deployment.md) and [verification evidence](docs/audits/50/README.md). The demo is not yet advertised as launch-ready.
 
 Once published, use the ordinary email/password login form with either public account:
 
