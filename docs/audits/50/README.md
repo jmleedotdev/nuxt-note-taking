@@ -86,6 +86,29 @@ nor application availability has been independently verified.
   performed in this stage. The downloaded CA is trusted only by these local
   operator processes; Vercel runtime trust still needs configuration.
 
+## Server-only CA configuration — 2026-11-06
+
+- Added optional `APP_DATABASE_CA_CERT` PEM support to the shared remote database
+  connection factory. Default trust is unchanged when absent; configured CA trust
+  remains certificate/hostname-verified. Loopback connections are unchanged.
+- Used the approved deployment smoke seam, not a destructive integration suite:
+  six one-off read-only checks across direct and transaction-pooler URLs, with
+  `NODE_EXTRA_CA_CERTS` unset. Before implementation, both supplied-CA cases failed
+  with `SELF_SIGNED_CERT_IN_CHAIN`. After implementation, at
+  **2026-11-06T03:17:07.792Z**, both supplied-CA cases passed and all four
+  missing/unrelated-CA cases were rejected. Successful queries also confirmed
+  SSL on the database backend leg. No account/session/note/lifecycle writes occurred.
+- `pnpm test:http test/http/demo-cron.test.ts`: **2 passed** against disposable
+  local data. The first attempt found local PostgreSQL stopped (`ECONNREFUSED`);
+  starting the Compose PostgreSQL service resolved this environmental issue.
+- `pnpm lint`, `pnpm typecheck` (repeated), and `git diff --check`: passed.
+- `pnpm test exec vitest run --maxWorkers=2`: **18 files, 157 tests passed**,
+  using a randomly created disposable local database; no hosted secrets were
+  exported into the suite's environment.
+- Updated the environment example and runbook with multiline PEM entry,
+  Production-only scope, CA rotation/redeployment, and separate Drizzle CLI trust.
+  Vercel CA entry, credentialed deployment, and initial reset are still outstanding.
+
 ## Unresolved hosted launch gates
 
 The following remain **unverified or incomplete**, not implied by local passes:

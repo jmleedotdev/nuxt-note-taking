@@ -24,6 +24,10 @@ export function databaseConnection(url: string, normalMax = 10) {
     // Remote database connections must encrypt AND verify the server certificate.
     ssl: local
       ? undefined
-      : { rejectUnauthorized: true },
+      : {
+          rejectUnauthorized: true,
+          // PEM contents, not a local path: serverless instances have no operator Downloads folder.
+          ca: process.env.APP_DATABASE_CA_CERT || undefined,
+        },
   })
 }

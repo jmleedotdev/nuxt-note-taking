@@ -2,11 +2,12 @@
 
 ## Publication status
 
-**Not published or hosted-verified by this change.** No authorized Vercel or
-Supabase account/CLI connection is available in the implementation environment.
-A live URL must not be advertised until the gates below pass. Repository checks
-are recorded in [deployment evidence](audits/50/README.md); they are not evidence
-of hosted connectivity, environment scoping, cookies, cron delivery, or ingress IP trust.
+**Not published or application-hosted-verified.** Controlled Supabase database
+preparation has been performed; Vercel account/CLI access and deployed application
+behavior remain unverified. A live URL must not be advertised until the gates
+below pass. Local checks and bounded hosted database results are distinguished in
+[deployment evidence](audits/50/README.md); database probes alone do not verify
+Vercel connectivity, environment scoping, cookies, cron delivery, or ingress IP trust.
 
 ## Ownership of the steps
 
@@ -49,6 +50,30 @@ pooler certificate is trusted by Node; a trust failure is a launch blocker, not
 permission to disable verification. Loopback disposable development databases
 need no TLS. Verify actual hosted TLS/transactions before publication.
 
+If Node does not trust the database certificate chain, download the CA from the
+project's **Database Settings → SSL Configuration → Download Certificate**.
+Set server-only `APP_DATABASE_CA_CERT` to the **full PEM contents** in Vercel
+**Production only**, including `-----BEGIN CERTIFICATE-----` and
+`-----END CERTIFICATE-----` on their own lines. Paste real line breaks, without
+surrounding quotes; do not enter a file path or literal `\\n` escapes. This CA
+replaces Node's default trust roots for remote application/provisioning database
+connections only. If unset/empty, Node's normal trust roots apply. Certificate
+and hostname verification remain enabled; an unrelated CA must fail closed.
+The CA is public, but keep the configuration server-side, never in `NUXT_PUBLIC_*`
+or client runtime config. Changing it requires a new deployment. No certificate
+is bundled or fetched automatically from an unverified endpoint.
+
+Local operator processes can instead trust the downloaded CA with
+`NODE_EXTRA_CA_CERTS=/absolute/path/to/prod-ca-2021.crt`. The Drizzle Kit migration
+CLI does **not** consume `APP_DATABASE_CA_CERT`; for migrations use the Node CA
+setting and `sslmode=verify-full` on the direct/session URL. Do not point Vercel's
+`NODE_EXTRA_CA_CERTS` at a file in the operator's Downloads directory.
+
+Enable **Enforce SSL on incoming connections** in Supabase Database Settings;
+this briefly restarts the database. Verify both client-to-pooler and
+pooler-to-database encryption. A `pg_stat_ssl` query through the pooler reports
+its backend leg, not the client-to-pooler handshake.
+
 Use a **direct connection** for migrations, or **Session pooler on port 5432**
 when the operator network is IPv4-only. Do not run Drizzle migrations through
 the transaction pooler. Keep this operator URL out of Vercel. URL-encode the
@@ -67,8 +92,9 @@ password in either URL. Use the same dedicated project for both URLs.
    values (`openssl rand -hex 32` each). Enter the variables from
    `.env.demo.example` for **Production only**, not All Environments, Preview,
    Development, or branch overrides. Set `APP_ENV=demo` and `APP_URL` to the
-   final HTTPS origin without a trailing slash. No mail service is needed.
-   Remove inherited/shared database credentials or secrets from other scopes.
+   final HTTPS origin without a trailing slash. When required, add the dashboard's
+   CA PEM as `APP_DATABASE_CA_CERT` using the instructions above. No mail service
+   is needed. Remove inherited/shared database credentials or secrets from other scopes.
    Do not use `NUXT_PUBLIC_*`. Runtime never needs demo-password variables.
 4. Operator: inspect the exact project ref, host, database name, current schema,
    and migration history. Explicitly export the selected migration URL as
