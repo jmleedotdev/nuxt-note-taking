@@ -102,9 +102,25 @@ describe('demo access over real HTTP', async () => {
     env: {
       DATABASE_URL: database.url,
       APP_ENV: 'demo',
+      CRON_SECRET: '',
       MAIL_MODE: '',
       MAILTRAP_URL: '',
     },
+  })
+
+  it('fails closed when the scheduled reset secret is absent, even for a demo session', async () => {
+    const cookie = await login(emails[0]!)
+
+    for (const authorization of ['', 'Bearer undefined', `Bearer ${password}`]) {
+      const response = await fetch(url('/api/cron/demo-reset'), {
+        headers: { authorization, cookie },
+      })
+
+      expect(response.status).toBe(401)
+      expect(response.headers.get('cache-control')).toBe('no-store')
+    }
+
+    expect((await request('/api/session', undefined, cookie)).status).toBe(200)
   })
 
   it('rejects existing unrelated accounts and all credential-management HTTP operations', async () => {

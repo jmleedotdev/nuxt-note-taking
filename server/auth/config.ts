@@ -39,6 +39,11 @@ const schema = z.object({
 })
 
 export function authConfig() {
+  // Defense in depth: accidentally inherited Production credentials must never
+  // make a Vercel Preview/Development deployment a second live demo writer.
+  if (process.env.VERCEL === '1' && process.env.VERCEL_ENV !== 'production')
+    throw new Error('Database-backed Vercel previews are disabled')
+
   const result = schema.safeParse(process.env)
 
   if (!result.success) {

@@ -1,6 +1,6 @@
 # Portfolio demo specification
 
-Status: agreed behavior; account provisioning, restrictions, capacity, and request-time daily lifecycle implemented. Hosted deployment and scheduled invocation remain follow-ups.
+Status: account provisioning, restrictions, capacity, request-time lifecycle, and authenticated scheduled invocation implemented. Hosted deployment and actual ingress validation remain blocked on account authorization; see the [deployment runbook](demo-deployment.md) and [evidence](audits/50/README.md).
 
 ## Purpose and hosting
 
@@ -102,7 +102,7 @@ An expired session is rejected on its next server request and the visitor return
 
 ## Implemented lifecycle coordination
 
-`server/demo/lifecycle.ts` supplies `ensureDemoDay()` for request-time enforcement and the future authenticated scheduler. It requires `APP_ENV=demo`, validates both fixed, verified identities, and changes only their notes, preferences, and sessions. Baseline content is shared with create-only provisioning. Credentials and account rows are never replaced.
+`server/demo/lifecycle.ts` supplies `ensureDemoDay()` for request-time enforcement and the authenticated `GET /api/cron/demo-reset` scheduler. It requires `APP_ENV=demo`, validates both fixed, verified identities, and changes only their notes, preferences, and sessions. Baseline content is shared with create-only provisioning. Credentials and account rows are never replaced.
 
 The committed `demo_lifecycle` migration records the last completed ISO UTC day. PostgreSQL's `clock_timestamp()` is the authority; application-instance clocks and login times do not select the reset period. One transaction-scoped advisory lock serializes provisioning, restoration, login, session authorization, and complete protected note/preference operations across instances. This deliberately favors simple correctness over parallel throughput for the two shared demo accounts. Keep any future protected operations inside `withDemoAccess()` as well.
 
@@ -142,4 +142,4 @@ Remaining deployment follow-ups and validation responsibilities:
 - Test the notice on desktop/mobile and expired-session handling with unsaved edits.
 - Document deployment, provisioning, reset recovery, public credentials, and free-tier limitations before publishing the demo.
 
-Hosted provisioning, scheduler authentication, and deployment are delivered separately from the request-time lifecycle.
+Scheduler authentication and one midnight UTC Vercel schedule are implemented. Hosted provisioning, environment scoping, deployment smoke checks, and actual client-IP validation require the explicit operator steps in the [deployment runbook](demo-deployment.md).

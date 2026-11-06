@@ -179,7 +179,9 @@ describe('private notes HTTP contract', async () => {
 
   it('explicitly creates a private plain-text note and reopens it through fresh HTTP requests', async () => {
     const { cookie } = await account()
-    const before = Date.now()
+    // Notes use the database clock; Docker/remote PostgreSQL need not be
+    // millisecond-synchronized with the test runner's host clock.
+    const before = await (await post('/__test/note-state', { clock: true })).json()
     const response = await post('/api/notes', {
       title: '  My first note  ',
       content: '  First paragraph\r\n\r\nSecond paragraph\r  <b>plain text</b>  \n',
@@ -204,7 +206,11 @@ describe('private notes HTTP contract', async () => {
       isArchived: false,
       version: 1,
     })
-    expect(Date.parse(note.lastEdited)).toBeGreaterThanOrEqual(before)
+
+    const after = await (await post('/__test/note-state', { clock: true })).json()
+
+    expect(Date.parse(note.lastEdited)).toBeGreaterThanOrEqual(before.now)
+    expect(Date.parse(note.lastEdited)).toBeLessThanOrEqual(after.now)
     expect(new Date(note.lastEdited).toISOString()).toBe(note.lastEdited)
     expect(await (await get(`/api/notes/${note.id}`, cookie)).json()).toEqual(note)
     expect(await (await get('/api/notes', cookie)).json()).toEqual({

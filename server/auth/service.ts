@@ -1,8 +1,8 @@
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { getCookies } from 'better-auth/cookies'
 import { betterAuth } from 'better-auth/minimal'
-import postgres from 'postgres'
 import { createDatabase } from '../db/client'
+import { databaseConnection } from '../db/connection'
 import * as schema from '../db/schema/auth'
 import { isDemoAccount } from '../demo/accounts'
 import { authConfig } from './config'
@@ -16,7 +16,7 @@ function createAuthService() {
   const sender = createMailSender(config)
   // All credential-lock waiters use this separate pool. They must never exhaust
   // the adapter pool needed by the login lock holder to finish creating a session.
-  const credentialTransactions = postgres(config.DATABASE_URL, { max: 5 })
+  const credentialTransactions = databaseConnection(config.DATABASE_URL, 5)
   const auth = betterAuth({
     baseURL: config.APP_URL,
     secret: config.APP_AUTH_SECRET,
