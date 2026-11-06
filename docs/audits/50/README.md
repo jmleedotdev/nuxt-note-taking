@@ -164,21 +164,60 @@ nor application availability has been independently verified.
   visitor budgets. Do not advertise until a platform-specific attribution path
   is validated against forged headers and two actual client networks.
 
+## Vercel ingress investigation and adapter — 2026-11-06
+
+- With explicit operator permission, temporarily deployed the private
+  `GET /api/operations/ip-probe` route in `4517d12`, deployment
+  `9vZ3L3GWa16iWfVo761Mww3GAXcE`. It required the private cron bearer secret,
+  demo mode, and a per-run nonce; it returned only keyed address fingerprints
+  and platform metadata, with no-store responses and no database operations.
+  Public credentials returned 401. Its disposable HTTP test first failed on the
+  absent route (404 instead of 401), then passed after implementation.
+- At **2026-11-06T10:13:52.904Z**, actual runtime metadata confirmed
+  **Node v24.22.2**, `VERCEL=1`, `VERCEL_ENV=production`, and the exact deployed
+  commit. Seven requests tested baseline/repeat and forged `X-Real-IP`,
+  `X-Forwarded-For`, `X-Vercel-Forwarded-For`, `Forwarded`, and combined chains.
+  The three IP headers remained valid, stable, different from the proxy peer,
+  and never equal to the injected claims. Only boolean comparisons were retained
+  in the local summary; no raw visitor addresses or fingerprints were recorded.
+- Rechecked [Vercel's primary header documentation](https://vercel.com/docs/headers/request-headers):
+  the edge overwrites forwarded client IPs to prevent spoofing;
+  `X-Vercel-Forwarded-For` is the platform-specific form. The deployed probe
+  verified that behavior rather than relying on the header name alone.
+- Added a Production-only platform adapter in `authClientIP`: only server-owned
+  `VERCEL=1` plus `VERCEL_ENV=production` enables the single validated
+  `X-Vercel-Forwarded-For` value. Other forwarding claims are ignored there.
+  Malformed/missing/chained values share `unknown`; non-platform TCP-peer trust
+  is unchanged. No new dependency or configurable arbitrary-header trust was added.
+- `test/http/vercel-login-limits.test.ts` first reproduced the bug: the 21st
+  distinct simulated platform visitor received 429 instead of 200. With the
+  adapter, all four HTTP tests pass: independent platform clients, retained
+  per-client ceiling, bounded malformed-header fallback, and non-platform spoof
+  rejection. Local tests explicitly simulate the already-overwritten header;
+  they are not evidence of actual edge normalization.
+- `pnpm lint`, repeated `pnpm typecheck`, and full disposable local suite
+  `pnpm test exec vitest run --maxWorkers=2`: **19 files, 161 tests passed**.
+- The temporary route and its temporary test have been removed from the working
+  source for the adapter deployment. Rollout/removal verification and the
+  second-real-network check remain pending at this stage.
+
 ## Unresolved hosted launch gates
 
 The following remain **unverified or incomplete**, not implied by successful smoke checks:
 
-1. Independently verify Vercel Hobby plan, Production branch tracking, actual
-   Node version, Production-only variables, and Supabase public Data API exposure.
+1. Independently verify Vercel Hobby plan, Production branch tracking,
+   Production-only variables, and Supabase public Data API exposure. Node 24
+   and Production runtime identity were verified by the private ingress probe.
 2. Verify Preview isolation and absence of live database/reset secrets in
    Preview/Development/shared scopes; inspect deployed client artifacts for secrets.
 3. Verify hosted transaction rollback/concurrency and connection budget without
    running the destructive integration suite against shared demo data.
 4. Verify enabled midnight UTC cron settings and an actual scheduled-delivery log.
    Manual authorization and same-day idempotence are verified, not scheduled delivery.
-5. Fix/validate client-IP attribution and spoof resistance with two client networks.
-   Current hosted limiter attribution collapses to the loopback proxy peer; this
-   is a launch blocker, not evidence that the shared-account IP protection is complete.
+5. Deploy/validate the client-IP adapter and probe removal, then verify independent
+   budgets using two actual client networks. Edge overwrite is verified; the
+   original adapter's loopback attribution is fixed in source but rollout and
+   final client separation are not yet accepted.
 
 Follow [the runbook](../../demo-deployment.md) in order and append dated hosted
 results (deployment/commit IDs, steps, observed outcomes, no secrets) here. Then

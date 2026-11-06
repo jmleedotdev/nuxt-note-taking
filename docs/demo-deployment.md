@@ -179,17 +179,19 @@ with explicit permission to change their public data; not the destructive suite.
 - Verify environment scopes in the dashboard and a Preview deployment; neither
   its normal APIs nor cron can touch the live database. Inspect client artifacts
   for accidental private configuration; never paste secret search results into evidence.
-- **IP trust is a launch blocker:** the current adapter trusts only a configured
-  TCP peer, not arbitrary forwarded claims. Leave `APP_TRUSTED_PROXY_IP` unset
-  until actual ingress behavior is known. Using two real networks, establish
-  the peer exposed by Nitro and whether Vercel overwrites `X-Real-IP`. Repeat
-  requests with forged `X-Real-IP`, `X-Forwarded-For`, `Forwarded`, and
-  `X-Vercel-Forwarded-For`. Document that forged claims cannot change the limiter
-  identity, distinct real clients have separate budgets, and the per-IP/global
-  ceilings work. Use temporary private instrumentation if needed, remove it
-  before publishing, and do not store raw IPs. If the fixed-peer contract does
-  not hold, implement/test a platform-specific adapter before launch. Do not
-  guess a proxy IP or trust a header just because its name contains “Vercel”.
+- **IP verification is a launch gate:** on Vercel Production, the adapter uses
+  only the edge-overwritten single-IP `X-Vercel-Forwarded-For`, gated by
+  server-owned `VERCEL=1` and `VERCEL_ENV=production`. Leave
+  `APP_TRUSTED_PROXY_IP` unset; the observed loopback socket is not a visitor.
+  Missing/invalid/chained platform values share a bounded `unknown` bucket.
+  Non-Vercel deployments retain the explicit TCP-peer trust policy. Do not set
+  Vercel's platform variables on other hosts or put a custom unvalidated proxy
+  in front of this deployment. Using two real networks, confirm independent
+  budgets; repeat forged `X-Real-IP`, `X-Forwarded-For`, `Forwarded`, and
+  `X-Vercel-Forwarded-For` requests to prove the limiter identity cannot be changed.
+  Record results without raw IPs. Remove any temporary private instrumentation
+  before publishing. Ingress overwrite was checked on #50's deployed probe;
+  that alone is not a second-network or full abuse-control check.
 
 ## Free-tier constraints and primary sources
 

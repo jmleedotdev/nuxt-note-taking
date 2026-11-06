@@ -48,28 +48,34 @@ tells visitors to wait and try again; there is no demo authentication shortcut.
 
 ### Proxy trust and Vercel deployment gate
 
-Client identity defaults to the actual TCP peer, or a shared `unknown` bucket
-when the runtime exposes no peer. Forwarded claims are ignored unless that peer
-exactly matches `APP_TRUSTED_PROXY_IP`. Only then is a single valid IP literal
-from `X-Real-IP` accepted. Forwarded chains, `Forwarded`, and Vercel-named headers
-are not alternative trust signals. Without a verified proxy configuration,
-limits remain bounded but legitimate visitors may share a proxy's allowance.
+On Vercel Production, server-owned `VERCEL=1` and `VERCEL_ENV=production` select
+a platform adapter that accepts only a single valid IP literal from
+`X-Vercel-Forwarded-For`. Vercel documents that its ingress overwrites this value;
+the deployed #50 probe confirmed forged values and chains were overwritten.
+Missing, invalid, or chained values use one bounded `unknown` bucket, not an
+alternative forwarding header. `X-Real-IP`, `X-Forwarded-For`, and `Forwarded`
+do not select a limiter identity on this platform. Do not spoof these platform
+variables on an ordinary public server: header trust depends on Vercel's edge.
 
-Do not set `APP_TRUSTED_PROXY_IP` to a guessed Vercel address or enable arbitrary
-forwarded-header trust. Before public launch, the deployment ticket must verify
-what the actual Vercel/Nitro runtime exposes as its peer and client IP, that the
-trusted ingress overwrites `X-Real-IP`, and that clients cannot reach the app
-while impersonating that peer. Test different real clients and forged
-`X-Real-IP`, `X-Forwarded-For`, `Forwarded`, and `X-Vercel-Forwarded-For` claims.
-If Vercel does not satisfy this single-overwriting-proxy contract, implement and
-validate an explicit platform-specific trust adapter before launch; this ticket
-does not claim hosted IP attribution is already verified. Leave proxy trust
-unset until that validation is complete.
+Outside Vercel Production, client identity remains the actual TCP peer, or
+`unknown` when absent. Only an exact `APP_TRUSTED_PROXY_IP` peer match permits
+a single `X-Real-IP` literal. Vercel-named headers and forwarded chains remain
+untrusted there. Leave `APP_TRUSTED_PROXY_IP` unset on Vercel; its observed
+loopback peer cannot identify visitors. Never guess a proxy address.
+
+Before public launch, verify different real networks obtain separate budgets,
+forged headers cannot change the actual limiter bucket, and missing platform
+identity never enables header trust. See [dated deployment evidence](audits/50/README.md)
+for verified ingress behavior and the still-outstanding second-network check.
 
 `test/http/demo-login-limits.test.ts` exercises ordinary successful shared-account
 sessions, concurrent cross-account IP admission, expiry/recovery, budgets
 surviving Nitro process replacement, the global ceiling across changing IPs,
 and spoofed forwarding claims from an untrusted peer against real PostgreSQL.
+`test/http/vercel-login-limits.test.ts` adds runtime-adapter HTTP checks for
+separate platform client budgets, per-client enforcement, malformed-header
+fallback, and non-platform spoof rejection. These local tests simulate the
+already-overwritten header; actual edge overwrite is a separate deployment check.
 Non-demo authentication tests retain and check the successful-login email cap.
 
 ## Notes and baseline

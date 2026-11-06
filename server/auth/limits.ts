@@ -6,6 +6,17 @@ import { isIP } from 'node:net'
 type Service = ReturnType<typeof authService>
 
 export function authClientIP(event: H3Event, service: Service) {
+  // Vercel overwrites this header at its edge; the Node socket only exposes its
+  // loopback proxy. Trust it only under server-owned Production platform identity.
+  if (process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production') {
+    const supplied = getHeader(event, 'x-vercel-forwarded-for')
+
+    // Never parse visitor-supplied chains or fall back to a different header.
+    return supplied && isIP(supplied)
+      ? supplied.replace(/^::ffff:/, '')
+      : 'unknown'
+  }
+
   const peer = (event.node.req.socket.remoteAddress ?? 'unknown').replace(/^::ffff:/, '')
 
   // Trust one overwriting proxy only; never trust a client-supplied forwarded chain.
