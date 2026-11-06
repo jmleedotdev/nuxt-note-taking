@@ -5,9 +5,9 @@
 Implementation baseline: `80426f27198223449bd4ecce96a5d9eac7dd043f` on branch `demo`.
 Verification environment: Node **24.22.2**, pnpm **12.14.0**, local disposable
 PostgreSQL via Compose. This is **repository readiness evidence, not a published
-deployment**. The live URL, Vercel deployment ID, and Supabase project ref are
-unassigned/unverified. No account authorization or private hosted credentials
-were available. #50 remains operationally blocked, not fully accepted.
+deployment**. At implementation time, no account authorization or private hosted
+credentials were available. Subsequent hosted database preparation is recorded
+below. The Vercel application deployment remains unverified; #50 is not fully accepted.
 
 ## Checks performed
 
@@ -53,17 +53,78 @@ were available. #50 remains operationally blocked, not fully accepted.
 The database runner refuses non-loopback targets before making a connection.
 Never bypass this using a tunnel to the public demo database.
 
+## Hosted database preparation — 2026-11-06
+
+Target: Supabase project `mtvusemetkvxdaatcjcr`, database `postgres`, PostgreSQL
+**17.11**. Operator selected Vercel project `jmlees-projects/nuxt-note-taking` and
+intended origin `https://nuxt-note-taking.vercel.app`; neither the Vercel settings
+nor application availability has been independently verified.
+
+- The human completed the setup wizard and confirmed the target. Setup secrets
+  remain in a private, Git-ignored local file; none are recorded here.
+- Initial read-only probes failed with `SELF_SIGNED_CERT_IN_CHAIN`. The human
+  downloaded the Supabase Root 2021 CA from the project dashboard. Retrying with
+  `NODE_EXTRA_CA_CERTS` passed without disabling certificate verification.
+- The initial pooler probe reported an unencrypted pooler-to-database leg. After
+  the human enabled SSL enforcement, both direct and transaction-pooler probes
+  reported **TLS 1.3** in `pg_stat_ssl`; the application client also requires
+  certificate-verified TLS. Public and Drizzle schemas had no tables before migration.
+- Following operator confirmation, `pnpm db:migrate` applied the five committed
+  migrations through the direct port-5432 URL with `sslmode=verify-full` and the
+  downloaded CA trusted. No startup/build migration hook was added.
+- `pnpm demo:provision --confirm-database postgres` then succeeded through the
+  direct connection with certificate verification and the public README passwords.
+- Read-only verification at **2026-11-06T03:14:48.503Z** through the port-6543
+  transaction pooler confirmed all five migration timestamps/hashes match committed
+  files, exactly two preverified demo users, three notes each, and System/Inter
+  preferences. Session and lifecycle tables were empty: the daily lifecycle has
+  **not** yet run. No destructive automated test targeted this hosted database.
+- These checks used the repository's existing connection settings (`prepare: false`,
+  `max_pipeline: 1`) and real read-only transactions. Hosted rollback/concurrency,
+  runtime connection budgets, and Vercel execution have not been verified.
+- No credentialed deployment, login, cron invocation, or initial daily reset was
+  performed in this stage. The downloaded CA is trusted only by these local
+  operator processes; Vercel runtime trust still needs configuration.
+
+## Server-only CA configuration — 2026-11-06
+
+- Added optional `APP_DATABASE_CA_CERT` PEM support to the shared remote database
+  connection factory. Default trust is unchanged when absent; configured CA trust
+  remains certificate/hostname-verified. Loopback connections are unchanged.
+- Used the approved deployment smoke seam, not a destructive integration suite:
+  six one-off read-only checks across direct and transaction-pooler URLs, with
+  `NODE_EXTRA_CA_CERTS` unset. Before implementation, both supplied-CA cases failed
+  with `SELF_SIGNED_CERT_IN_CHAIN`. After implementation, at
+  **2026-11-06T03:17:07.792Z**, both supplied-CA cases passed and all four
+  missing/unrelated-CA cases were rejected. Successful queries also confirmed
+  SSL on the database backend leg. No account/session/note/lifecycle writes occurred.
+- `pnpm test:http test/http/demo-cron.test.ts`: **2 passed** against disposable
+  local data. The first attempt found local PostgreSQL stopped (`ECONNREFUSED`);
+  starting the Compose PostgreSQL service resolved this environmental issue.
+- `pnpm lint`, `pnpm typecheck` (repeated), and `git diff --check`: passed.
+- `pnpm test exec vitest run --maxWorkers=2`: **18 files, 157 tests passed**,
+  using a randomly created disposable local database; no hosted secrets were
+  exported into the suite's environment.
+- Updated the environment example and runbook with multiline PEM entry,
+  Production-only scope, CA rotation/redeployment, and separate Drizzle CLI trust.
+  Vercel CA entry, credentialed deployment, and initial reset are still outstanding.
+- Independent review of the CA increment (`9ceeafb…d51b7d5`): **Standards: no
+  findings** (reviewer excluded the public environment-template hunk); **Spec: no
+  findings**, including confirmation of the driver's hostname verification and
+  explicit SSL-option precedence. The Spec reviewer covered the public template.
+  Both reviews accept only this increment, not completion of the hosted launch gates.
+
 ## Unresolved hosted launch gates
 
-All are **NOT PERFORMED**, not implied by local passes:
+The following remain **unverified or incomplete**, not implied by local passes:
 
-1. Human authorization/provisioning of Vercel Hobby and a dedicated Supabase
-   Free project; private Production-only environment entry and branch selection.
-2. Controlled migrations/provisioning against the confirmed dedicated project,
-   followed by an explicitly authorized initial baseline restoration.
-3. Actual Supavisor transaction-pooler connectivity, certificate-verified TLS,
-   prepared-statement/pipelining compatibility, transaction rollback/locking,
-   connection budget, and Node runtime smoke checks.
+1. Independently verify the human-reported Vercel Hobby setup, Production branch,
+   Node version, and Production-only environment entry; Supabase project exists
+   and has been reached directly as recorded above.
+2. Controlled migration and create-only provisioning are complete. The explicitly
+   authorized initial daily baseline restoration remains outstanding.
+3. Vercel CA trust configuration, actual deployed Supavisor connectivity,
+   transaction rollback/locking, connection budget, and Node runtime smoke checks.
 4. Both hosted logins, secure/HttpOnly/SameSite cookies, account isolation,
    notes/preferences, capacity feedback, responsive notice, disabled credential
    management, and deployed client artifact secret audit.
