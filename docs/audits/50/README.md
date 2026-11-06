@@ -108,6 +108,11 @@ nor application availability has been independently verified.
 - Updated the environment example and runbook with multiline PEM entry,
   Production-only scope, CA rotation/redeployment, and separate Drizzle CLI trust.
   Vercel CA entry, credentialed deployment, and initial reset are still outstanding.
+- Independent review of the CA increment (`9ceeafb…d51b7d5`): **Standards: no
+  findings** (reviewer excluded the public environment-template hunk); **Spec: no
+  findings**, including confirmation of the driver's hostname verification and
+  explicit SSL-option precedence. The Spec reviewer covered the public template.
+  Both reviews accept only this increment, not completion of the hosted launch gates.
 
 ## Unresolved hosted launch gates
 
