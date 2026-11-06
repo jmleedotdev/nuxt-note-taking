@@ -1,10 +1,11 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import type postgres from 'postgres'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 import { demoDay } from '#demo-clock'
 import { authConfig } from '../auth/config'
+import { databaseConnection } from '../db/connection'
 import { notes } from '../db/schema/notes'
 import { demoAccounts } from './accounts'
 import { demoSamples } from './baseline'
@@ -30,7 +31,7 @@ export function demoDatabase() {
 let coordination: ReturnType<typeof postgres> | undefined
 
 function lifecycleDatabase() {
-  coordination ??= postgres(authConfig().DATABASE_URL, { max: 5 })
+  coordination ??= databaseConnection(authConfig().DATABASE_URL)
 
   return drizzle(coordination)
 }

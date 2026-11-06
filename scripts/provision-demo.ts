@@ -1,4 +1,4 @@
-import postgres from 'postgres'
+import { databaseConnection } from '../server/db/connection'
 import { provisionDemo } from '../server/demo/provision'
 
 // Do not load .env automatically: the operator must explicitly select the target.
@@ -11,7 +11,7 @@ if (process.env.APP_ENV !== 'demo' || !target
   throw new Error('Set APP_ENV=demo and DATABASE_URL explicitly; pass --confirm-database with the exact database name')
 }
 
-const client = postgres(target, { max: 1 })
+const client = databaseConnection(target)
 
 try {
   await provisionDemo(client, [process.env.DEMO_PASSWORD_1 ?? '', process.env.DEMO_PASSWORD_2 ?? ''])

@@ -14,7 +14,9 @@ Built with Nuxt 4, Vue 3, Nuxt UI, and Tailwind CSS, with Better Auth for authen
 
 ## Public portfolio demo
 
-Use the ordinary email/password login form with either public account:
+**Publication pending:** there is no verified live demo URL yet. Deployment requires the human account/secret steps and hosted launch gates in the [deployment runbook](docs/demo-deployment.md). Do not treat local test results as hosted verification.
+
+Once published, use the ordinary email/password login form with either public account:
 
 | Email              | Password    |
 | ------------------ | ----------- |
@@ -41,11 +43,11 @@ The procedure creates only the two designated identities, their password credent
 
 If restoration fails, demo access returns a temporary-unavailable response rather than yesterday's data. Check database availability, applied migrations, and both provisioned identities; correct the cause and retry login. The failed transaction changes neither account, and the next request safely retries restoration. Do not delete the lifecycle record or rerun provisioning as a reset workaround. Provisioning remains create-only.
 
-The shared internal operation is `ensureDemoDay()` in `server/demo/lifecycle.ts`; the deployment ticket supplies its authenticated scheduled HTTP invocation and Vercel scheduling. There is no public manual-reset control. Demo login permits shared-account reuse without a per-email cap, while retaining 20 attempts/IP/hour and 500 attempts globally/hour in shared PostgreSQL state. A throttled visitor should wait before retrying. Hosted deployment and trusted client-IP validation remain follow-ups; see [login protection and proxy assumptions](docs/demo.md#implemented-shared-login-protection) and [lifecycle coordination](docs/demo.md#implemented-lifecycle-coordination).
+The authenticated `GET /api/cron/demo-reset` invokes `ensureDemoDay()` using a private `CRON_SECRET`; public credentials or a demo session cannot authorize it. `vercel.json` schedules one midnight UTC invocation daily. Hobby delivery can arrive during the next hour or be missed; request-time enforcement remains authoritative. There is no visitor manual-reset control. Demo login retains 20 attempts/IP/hour and 500 attempts globally/hour without a per-email cap. Free-tier availability is not guaranteed: Supabase Free can pause after one week of inactivity, and cron traffic does not guarantee it stays active. Follow the [deployment, Production-only secret scoping, recovery, and hosted verification runbook](docs/demo-deployment.md), including the unresolved trusted client-IP launch gate.
 
 ### Demo checks
 
-Follow the disposable PostgreSQL setup linked below. `pnpm test:http test/http/demo.test.ts test/http/demo-lifecycle.test.ts test/http/demo-login-limits.test.ts` tests the real Nuxt APIs with committed migrations in isolated data. `pnpm test:browser:demo` runs focused desktop/tablet/mobile journeys in demo mode against a disposable database without mail. Its test configuration alone mounts a lifecycle-control route and replaces the PostgreSQL clock; ordinary builds contain neither control. `pnpm test:browser` retains the normal non-demo journeys. Never point either test command at the public deployment.
+Follow the disposable PostgreSQL setup linked below. `pnpm test:http test/http/demo.test.ts test/http/demo-lifecycle.test.ts test/http/demo-login-limits.test.ts test/http/demo-cron.test.ts` tests the real Nuxt APIs with committed migrations in isolated data. `pnpm test:browser:demo` runs focused desktop/tablet/mobile journeys in demo mode against a disposable database without mail. Its test configuration alone mounts a lifecycle-control route and replaces the PostgreSQL clock; ordinary builds contain neither control. `pnpm test:browser` retains the normal non-demo journeys. Never point either test command at the public deployment.
 
 ## Local development setup
 

@@ -17,6 +17,10 @@ if (!adminURL) {
   throw new Error('Set DATABASE_URL directly or in .env.test.local to an isolated PostgreSQL cluster')
 }
 
+if (!['localhost', '127.0.0.1', '[::1]'].includes(new URL(adminURL).hostname)) {
+  throw new Error('Destructive test suites require a disposable loopback PostgreSQL cluster; hosted databases are forbidden')
+}
+
 const admin = postgres(adminURL, {
   max: 1,
   onnotice: () => {},
