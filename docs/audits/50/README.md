@@ -197,9 +197,25 @@ nor application availability has been independently verified.
   they are not evidence of actual edge normalization.
 - `pnpm lint`, repeated `pnpm typecheck`, and full disposable local suite
   `pnpm test exec vitest run --maxWorkers=2`: **19 files, 161 tests passed**.
-- The temporary route and its temporary test have been removed from the working
-  source for the adapter deployment. Rollout/removal verification and the
-  second-real-network check remain pending at this stage.
+- The temporary route and its temporary test were removed in adapter commit
+  `c17d060`, then pushed to `main` after independent review. The first review
+  attempt failed on the reviewer provider's usage limit; the operator requested
+  a retry. The retry completed: **Standards: no findings; Spec/security: no code
+  findings**. Both distinguish accepted source from outstanding hosted gates.
+- Vercel reports successful deployment `HdAuE4NxuguJgEUjYbS71zdY7jdN` for
+  `c17d060`. At **2026-11-06T10:37:31.261Z**, the former probe returned **404**
+  even with its previous private authorization. Six bounded actual login requests
+  across both accounts succeeded; each incremented exactly the same non-fallback
+  IP budget by one despite forged individual headers and combined chains.
+  Read-only database comparisons established that the actual limiter identity
+  was neither loopback nor `unknown`; no IPs, cookies, fingerprints, or bucket keys
+  were recorded. Each smoke session was logged out through the ordinary API.
+  Active non-fallback buckets increased from zero to one. Two actual networks
+  have not yet been verified.
+- Diagnostic code is absent from the deployed Production version. Historical
+  immutable diagnostic deployments may remain accessible through their old URLs
+  with the private secret; keep them protected/delete them through Vercel as part
+  of operator cleanup. No public demo credential authorizes their probe.
 
 ## Unresolved hosted launch gates
 
@@ -214,10 +230,10 @@ The following remain **unverified or incomplete**, not implied by successful smo
    running the destructive integration suite against shared demo data.
 4. Verify enabled midnight UTC cron settings and an actual scheduled-delivery log.
    Manual authorization and same-day idempotence are verified, not scheduled delivery.
-5. Deploy/validate the client-IP adapter and probe removal, then verify independent
-   budgets using two actual client networks. Edge overwrite is verified; the
-   original adapter's loopback attribution is fixed in source but rollout and
-   final client separation are not yet accepted.
+5. Verify independent login budgets using two actual client networks. Adapter
+   rollout, edge overwrite/spoof resistance, and probe removal from current
+   Production are verified; second-network separation remains outstanding.
+   Protect/delete historical diagnostic deployment URLs during operator cleanup.
 
 Follow [the runbook](../../demo-deployment.md) in order and append dated hosted
 results (deployment/commit IDs, steps, observed outcomes, no secrets) here. Then
