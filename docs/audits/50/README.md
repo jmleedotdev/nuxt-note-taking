@@ -7,7 +7,7 @@ Verification environment: Node **24.22.2**, pnpm **12.14.0**, local disposable
 PostgreSQL via Compose. The original checks below establish repository readiness;
 subsequent dated sections record actual Supabase preparation and hosted Vercel
 HTTP/browser checks. **Deployed but not launch-ready or advertised**: client-IP
-attribution and remaining platform launch gates are incomplete. Production now
+attribution is verified; remaining platform launch gates are incomplete. Production now
 uses **`main`**, which contains the original `demo` implementation. #50 is not
 fully accepted.
 
@@ -210,12 +210,28 @@ nor application availability has been independently verified.
   Read-only database comparisons established that the actual limiter identity
   was neither loopback nor `unknown`; no IPs, cookies, fingerprints, or bucket keys
   were recorded. Each smoke session was logged out through the ordinary API.
-  Active non-fallback buckets increased from zero to one. Two actual networks
-  have not yet been verified.
+  Active non-fallback buckets increased from zero to one. The two-network
+  follow-up below completes the client-separation check.
 - Diagnostic code is absent from the deployed Production version. Historical
   immutable diagnostic deployments may remain accessible through their old URLs
   with the private secret; keep them protected/delete them through Vercel as part
   of operator cleanup. No public demo credential authorizes their probe.
+
+## Two-real-network validation — 2026-11-06
+
+- The operator confirmed ordinary logins from the computer network and from a
+  phone with Wi-Fi disabled using cellular data, following the explicit checklist.
+- Read-only verification at **2026-11-06T10:43:56.684Z** found **two independent
+  non-fallback IP buckets**: the original bucket advanced from six to eight
+  attempts, while a new bucket appeared with three attempts and a later expiry.
+  The historical loopback bucket was unchanged at two attempts. The ordinary
+  global ceiling remains shared; per-client buckets are no longer the proxy peer.
+- Combined with the earlier forged-header checks and disposable enforcement
+  tests, this passes the actual deployed client-IP attribution/separation gate.
+  No raw addresses, cookies, fingerprints, or bucket keys were recorded. These
+  bounded checks did not intentionally exhaust the public IP/global allowances.
+- GitHub also reports successful documentation deployment `2UmPdAACnDf2vySCEzH9JcKzA2VH`
+  for `2a9bbb8`, which contains the reviewed adapter without diagnostic code.
 
 ## Unresolved hosted launch gates
 
@@ -230,10 +246,9 @@ The following remain **unverified or incomplete**, not implied by successful smo
    running the destructive integration suite against shared demo data.
 4. Verify enabled midnight UTC cron settings and an actual scheduled-delivery log.
    Manual authorization and same-day idempotence are verified, not scheduled delivery.
-5. Verify independent login budgets using two actual client networks. Adapter
-   rollout, edge overwrite/spoof resistance, and probe removal from current
-   Production are verified; second-network separation remains outstanding.
-   Protect/delete historical diagnostic deployment URLs during operator cleanup.
+5. Protect/delete historical diagnostic deployment URLs during operator cleanup.
+   Client-IP attribution, spoof resistance, and two-real-network separation are
+   verified; diagnostic code is absent from current Production.
 
 Follow [the runbook](../../demo-deployment.md) in order and append dated hosted
 results (deployment/commit IDs, steps, observed outcomes, no secrets) here. Then

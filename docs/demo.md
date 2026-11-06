@@ -66,7 +66,8 @@ loopback peer cannot identify visitors. Never guess a proxy address.
 Before public launch, verify different real networks obtain separate budgets,
 forged headers cannot change the actual limiter bucket, and missing platform
 identity never enables header trust. See [dated deployment evidence](audits/50/README.md)
-for verified ingress behavior and the still-outstanding second-network check.
+for verified ingress behavior, spoof resistance, and the completed computer/cellular
+network-separation check.
 
 `test/http/demo-login-limits.test.ts` exercises ordinary successful shared-account
 sessions, concurrent cross-account IP admission, expiry/recovery, budgets

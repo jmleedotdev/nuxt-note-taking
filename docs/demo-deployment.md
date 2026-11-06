@@ -3,9 +3,10 @@
 ## Publication status
 
 **Deployed, but not yet launch-ready or advertised.** Controlled Supabase setup
-and bounded hosted HTTP/browser smoke checks have passed. Trusted client-IP
-attribution, Preview/secret scoping, actual scheduled delivery, and the remaining
-platform gates below are still incomplete. The Production branch is **`main`**.
+and bounded hosted HTTP/browser smoke checks have passed, including trusted
+client-IP attribution, spoof resistance, and two-real-network separation.
+Preview/secret scoping, actual scheduled delivery, and the remaining platform
+gates below are still incomplete. The Production branch is **`main`**.
 Local and hosted results are distinguished in
 [deployment evidence](audits/50/README.md); successful core journeys do not prove
 all platform settings, cron delivery, or ingress IP trust.
