@@ -21,6 +21,57 @@ Scope database credentials and reset secrets to Vercel Production. Preview deplo
 - No email service is required for demo access. Runtime configuration must explicitly support this rather than depend on local mail infrastructure.
 - Adapt login abuse protection for shared public credentials. Retain visitor/IP-based controls and an overall safety ceiling; successful logins must not unnecessarily exhaust a tight shared-account allowance.
 
+## Implemented shared-login protection
+
+Only `APP_ENV=demo` adapts login admission: there is no per-email bucket for
+`POST /api/login`. Each valid submission, successful or failed, consumes
+**20 attempts per client IP per hour** and **500 attempts globally per hour**
+across both accounts and unknown addresses. These conservative portfolio-demo
+thresholds permit different visitors to reuse the published accounts without
+hitting the normal five-per-email allowance, while bounding authentication work.
+The global ceiling can temporarily deny everyone under sustained abuse; it is
+an intentional safety trade-off, not an availability guarantee. IPs are not
+per-person identity: visitors behind a shared NAT share its allowance.
+
+The existing PostgreSQL limiter atomically commits every attempt, including
+throttled attempts, across application instances. Windows start with the first
+attempt and use database time; denied traffic does not extend a window. All
+instances must share the database and private `APP_AUTH_SECRET`. No migration
+or process-local counter is introduced. Non-demo login retains its five attempts
+per email per 15 minutes, 20 per IP per hour, and 500 globally per hour; other
+authentication limits and credential/session safeguards are unchanged.
+
+Throttling returns HTTP 429, application error `RATE_LIMITED`, and a numeric
+`retryAfter` matching the `Retry-After` header (seconds until the longest denied
+window expires). No session cookie is issued. The ordinary login form already
+tells visitors to wait and try again; there is no demo authentication shortcut.
+
+### Proxy trust and Vercel deployment gate
+
+Client identity defaults to the actual TCP peer, or a shared `unknown` bucket
+when the runtime exposes no peer. Forwarded claims are ignored unless that peer
+exactly matches `APP_TRUSTED_PROXY_IP`. Only then is a single valid IP literal
+from `X-Real-IP` accepted. Forwarded chains, `Forwarded`, and Vercel-named headers
+are not alternative trust signals. Without a verified proxy configuration,
+limits remain bounded but legitimate visitors may share a proxy's allowance.
+
+Do not set `APP_TRUSTED_PROXY_IP` to a guessed Vercel address or enable arbitrary
+forwarded-header trust. Before public launch, the deployment ticket must verify
+what the actual Vercel/Nitro runtime exposes as its peer and client IP, that the
+trusted ingress overwrites `X-Real-IP`, and that clients cannot reach the app
+while impersonating that peer. Test different real clients and forged
+`X-Real-IP`, `X-Forwarded-For`, `Forwarded`, and `X-Vercel-Forwarded-For` claims.
+If Vercel does not satisfy this single-overwriting-proxy contract, implement and
+validate an explicit platform-specific trust adapter before launch; this ticket
+does not claim hosted IP attribution is already verified. Leave proxy trust
+unset until that validation is complete.
+
+`test/http/demo-login-limits.test.ts` exercises ordinary successful shared-account
+sessions, concurrent cross-account IP admission, expiry/recovery, budgets
+surviving Nitro process replacement, the global ceiling across changing IPs,
+and spoofed forwarding claims from an untrusted peer against real PostgreSQL.
+Non-demo authentication tests retain and check the successful-login email cap.
+
 ## Notes and baseline
 
 Each account starts with three sample notes, with a different sample set for each account, and default appearance preferences.

@@ -109,6 +109,20 @@ describe('authentication HTTP contract', async () => {
     })
   })
 
+  it('keeps the five-login account allowance for successful non-demo logins', async () => {
+    const { email, link } = await account()
+
+    await fetch(url(link), { redirect: 'manual' })
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const response = await post('/api/login', { email, password })
+
+      expect(response.status).toBe(attempt < 5
+        ? 200
+        : 429)
+    }
+  })
+
   it('limits login by IP despite spoofed forwarding headers and varying emails', async () => {
     const statuses = []
 

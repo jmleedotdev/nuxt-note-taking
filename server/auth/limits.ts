@@ -22,10 +22,13 @@ export function authClientIP(event: H3Event, service: Service) {
 
 export async function consumeAuthLimit(service: Service, ip: string, subject?: string, purpose: 'registration' | 'login' | 'forgot' | 'reset' | 'change' = 'registration') {
   const digest = (value: string) => createHmac('sha256', service.config.APP_AUTH_SECRET).update(value).digest('hex')
+  // Public demo credentials are shared: successful visitors must not exhaust an
+  // account-wide bucket. Every attempt still consumes the IP and global budgets.
+  const sharedDemoLogin = service.config.APP_ENV === 'demo' && purpose === 'login'
   const rules = [
     { key: 'global', max: 500, seconds: 3600 },
     { key: `ip:${digest(ip)}`, max: 20, seconds: 3600 },
-    ...(subject
+    ...(subject && !sharedDemoLogin
       ? [
           {
             key: `email:${digest(subject)}`,

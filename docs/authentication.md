@@ -95,6 +95,10 @@ Signup/resend retain their shared limits: 20/IP/hour, 5/email/hour,
 1/email/30 seconds, and 500 globally/hour.
 Login uses separate keys in the **same shared atomic PostgreSQL limiter**:
 20/IP/hour, 5/email/15 minutes, 500 globally/hour, with no resend cooldown.
+Only `APP_ENV=demo` omits the login per-email bucket for the public shared
+accounts; IP/global budgets still count every attempt. See
+[demo login protection](demo.md#implemented-shared-login-protection) for thresholds,
+trade-offs, and the Vercel proxy-validation launch gate.
 Separate login budgets allow immediate login after signup/verification without
 resetting or weakening resend limits. All valid submissions, including successful
 and denied attempts, count. The Retry-After value is the longest denied window.
