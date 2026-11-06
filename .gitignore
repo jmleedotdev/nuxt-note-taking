@@ -6,6 +6,9 @@
 .cache
 dist
 
+# Local Vercel metadata and generated files
+.vercel/
+
 # Node dependencies
 node_modules
 
